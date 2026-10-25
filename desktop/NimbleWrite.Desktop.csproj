@@ -1,0 +1,44 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>NimbleWrite</AssemblyName>
+    <RootNamespace>NimbleWrite.Desktop</RootNamespace>
+    <StartupObject>NimbleWrite.Desktop.Program</StartupObject>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>nimblewrite.ico</ApplicationIcon>
+    <Version>1.0.2</Version>
+    <Product>NimbleWrite</Product>
+    <Description>NimbleWrite for Windows: AI writing suggestions in every app, powered by NVIDIA NIM</Description>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <!-- WFO0003: WinForms is only used for the tray icon; WPF needs the manifest's PerMonitorV2 DPI setting. -->
+    <NoWarn>$(NoWarn);SYSLIB1054;CA1416;WFAC010;WFO0003</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Interop.UIAutomationClient" Version="10.19041.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The test project and build output live under this folder too; keep them out of the app. -->
+    <Compile Remove="tests\**;publish\**;tools\**" />
+    <None Remove="tests\**;publish\**;tools\**" />
+    <EmbeddedResource Remove="tests\**;publish\**" />
+    <Page Remove="tests\**;publish\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="nimblewrite.ico" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="NimbleWrite.Desktop.Tests" />
+  </ItemGroup>
+
+</Project>

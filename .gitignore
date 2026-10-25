@@ -1,0 +1,21 @@
+# Secrets and runtime data (never commit these)
+.env
+.env.*
+!.env.example
+/data/
+
+# Build output and dependencies
+node_modules/
+dist/
+build/
+bin/
+obj/
+desktop/publish/
+TestResults/
+
+# Editors
+.vs/
+*.user
+
+# Logs
+*.log

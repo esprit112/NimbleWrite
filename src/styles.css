@@ -1,0 +1,223 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: "Segoe UI Variable Text", "Segoe UI", Inter, system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+  --font-serif: "Charter", "Iowan Old Style", Georgia, "Times New Roman", serif;
+  --font-mono: "Cascadia Code", Consolas, "SFMono-Regular", Menlo, monospace;
+  --color-brand-50: #ecf8f0;
+  --color-brand-100: #d2eedc;
+  --color-brand-200: #a6dcbb;
+  --color-brand-300: #6fc292;
+  --color-brand-400: #3ea36b;
+  --color-brand-500: #198752;
+  --color-brand-600: #0b6b3a;
+  --color-brand-700: #0a5630;
+  --color-brand-800: #0b4527;
+  --color-brand-900: #0a3920;
+  --color-brand-950: #04200f;
+  --color-nv: #76b900;
+  --color-correctness: #e5484d;
+  --color-clarity: #3e63dd;
+  --color-engagement: #18a058;
+  --color-delivery: #8e4ec6;
+}
+
+:root {
+  color-scheme: light;
+}
+.dark {
+  color-scheme: dark;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  @apply bg-white text-slate-800 antialiased dark:bg-slate-950 dark:text-slate-200;
+  font-family: var(--font-sans);
+}
+
+/* ---------- editor ---------- */
+.nw-editor .ProseMirror {
+  outline: none;
+  min-height: 60vh;
+  font-size: 1.0625rem;
+  line-height: 1.8;
+  caret-color: var(--color-brand-600);
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+.nw-editor .ProseMirror > * + * {
+  margin-top: 0.85em;
+}
+.nw-editor .ProseMirror h1 {
+  font-size: 1.9rem;
+  line-height: 1.25;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin-top: 0.6em;
+}
+.nw-editor .ProseMirror h2 {
+  font-size: 1.45rem;
+  line-height: 1.3;
+  font-weight: 650;
+  margin-top: 1.1em;
+}
+.nw-editor .ProseMirror h3 {
+  font-size: 1.2rem;
+  font-weight: 650;
+  margin-top: 1em;
+}
+.nw-editor .ProseMirror ul {
+  list-style: disc;
+  padding-left: 1.5em;
+}
+.nw-editor .ProseMirror ol {
+  list-style: decimal;
+  padding-left: 1.5em;
+}
+.nw-editor .ProseMirror li > p {
+  margin: 0.15em 0;
+}
+.nw-editor .ProseMirror blockquote {
+  border-left: 3px solid var(--color-brand-300);
+  padding-left: 1em;
+  color: var(--color-slate-600);
+  font-style: italic;
+}
+.dark .nw-editor .ProseMirror blockquote {
+  color: var(--color-slate-400);
+}
+.nw-editor .ProseMirror code {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  background: var(--color-slate-100);
+  border-radius: 4px;
+  padding: 0.1em 0.3em;
+}
+.dark .nw-editor .ProseMirror code {
+  background: var(--color-slate-800);
+}
+.nw-editor .ProseMirror pre {
+  font-family: var(--font-mono);
+  background: var(--color-slate-100);
+  border-radius: 8px;
+  padding: 0.8em 1em;
+  font-size: 0.9em;
+}
+.dark .nw-editor .ProseMirror pre {
+  background: var(--color-slate-900);
+}
+.nw-editor .ProseMirror a {
+  color: var(--color-brand-600);
+  text-decoration: underline;
+}
+.nw-editor .ProseMirror hr {
+  border: none;
+  border-top: 1px solid var(--color-slate-200);
+  margin: 1.5em 0;
+}
+.nw-editor .ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  color: var(--color-slate-400);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+
+/* ---------- suggestion underlines ---------- */
+.nw-sg {
+  --sg: var(--color-correctness);
+  border-bottom: 2px solid var(--sg);
+  border-radius: 1px;
+  cursor: pointer;
+  transition: background-color 0.12s ease;
+}
+.nw-sg.nw-correctness { --sg: var(--color-correctness); }
+.nw-sg.nw-clarity { --sg: var(--color-clarity); }
+.nw-sg.nw-engagement { --sg: var(--color-engagement); }
+.nw-sg.nw-delivery { --sg: var(--color-delivery); }
+.nw-sg:hover,
+.nw-sg.nw-active {
+  background-color: color-mix(in srgb, var(--sg) 16%, transparent);
+}
+.nw-hide-sg .nw-sg {
+  border-bottom-color: transparent;
+  background: none;
+}
+.nw-flash {
+  background-color: color-mix(in srgb, var(--color-nv) 30%, transparent);
+  transition: background-color 1.2s ease;
+}
+
+/* ---------- rendered AI output ---------- */
+.nw-prose p,
+.nw-prose ul,
+.nw-prose ol {
+  margin: 0.4em 0;
+}
+.nw-prose ul {
+  list-style: disc;
+  padding-left: 1.25em;
+}
+.nw-prose ol {
+  list-style: decimal;
+  padding-left: 1.25em;
+}
+.nw-prose h1,
+.nw-prose h2,
+.nw-prose h3 {
+  font-weight: 650;
+  margin: 0.6em 0 0.3em;
+}
+.nw-prose strong {
+  font-weight: 650;
+}
+
+.nw-scroll::-webkit-scrollbar {
+  width: 10px;
+}
+.nw-scroll::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--color-slate-400) 45%, transparent);
+  border-radius: 10px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+
+@keyframes nw-pop {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.nw-pop {
+  animation: nw-pop 0.14s ease-out;
+}
+
+@media print {
+  .nw-chrome {
+    display: none !important;
+  }
+  .nw-sg {
+    border: none !important;
+    background: none !important;
+  }
+  body,
+  #root {
+    height: auto;
+    overflow: visible;
+  }
+  .nw-print-root {
+    overflow: visible !important;
+    height: auto !important;
+  }
+}
