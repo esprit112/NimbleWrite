@@ -2,7 +2,7 @@
 
 A Grammarly-style AI writing assistant that runs on **NVIDIA NIM** models. It checks your writing as you type, explains every suggestion, and includes the generative writing tools and agents Grammarly has added recently.
 
-![categories](https://img.shields.io/badge/suggestions-correctness%20·%20clarity%20·%20engagement%20·%20delivery-0b6b3a) ![models](https://img.shields.io/badge/AI-NVIDIA%20NIM-76b900)
+[![CI](https://github.com/esprit112/NimbleWrite/actions/workflows/ci.yml/badge.svg)](https://github.com/esprit112/NimbleWrite/actions/workflows/ci.yml) ![categories](https://img.shields.io/badge/suggestions-correctness%20·%20clarity%20·%20engagement%20·%20delivery-0b6b3a) ![models](https://img.shields.io/badge/AI-NVIDIA%20NIM-76b900)
 
 ![NimbleWrite editor: underlined suggestions, an inline correction card, and the Review suggestions sidebar with category tabs and Accept all](docs/editor.png)
 
