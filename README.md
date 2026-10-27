@@ -79,7 +79,7 @@ Browser (React 19 + TipTap 3)                         Server (Express 5, port 43
 cd desktop
 dotnet build -c Release                     # or: dotnet publish -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true -o publish
 bin/Release/net10.0-windows/NimbleWrite.exe # starts the server too if it isn't running
-dotnet test tests                           # 101 unit tests: text model, SSE parser, hotkeys, focus after the shortcut, privacy guards, key store, launcher
+dotnet test tests                           # 104 unit tests: text model, SSE parser, hotkeys, focus after the shortcut, privacy guards, key store, launcher
 ```
 
 It needs the .NET 10 Desktop Runtime (the [installer](#windows-installer) includes everything instead). If the exe lives inside this folder and the server isn't running, it starts the server itself (`node` + `tsx`, so `npm install` must have been run), and stops that server again when you quit. If the server drops out, the badge and panel say so, and the message clears by itself once the server is back.
@@ -146,7 +146,7 @@ The installed app runs its own server on port 4317. It keeps documents and setti
 - **Upgrading:** run a newer setup program. It closes the running copy first, and keeps the install mode and folder of the copy already there (no questions asked).
 - **Moving between "just me" and "all users":** uninstall first (choose No to keep documents, settings and the key), then run Setup again and pick the other option.
 - **Uninstalling:** use Windows Settings → Apps. It asks whether to delete documents, settings and the saved key; the default keeps them.
-- **Unattended installs:** `NimbleWrite-Setup-1.0.2.exe /VERYSILENT /TASKS="startup"` installs silently (add `/ALLUSERS` for Program Files, from an elevated prompt, or `/CURRENTUSER`), and `unins000.exe /VERYSILENT` removes it, keeping user data.
+- **Unattended installs:** `NimbleWrite-Setup-1.0.3.exe /VERYSILENT /TASKS="startup"` installs silently (add `/ALLUSERS` for Program Files, from an elevated prompt, or `/CURRENTUSER`), and `unins000.exe /VERYSILENT` removes it, keeping user data.
 
 **Not code-signed yet.** On other PCs, Windows SmartScreen will say "Windows protected your PC" for a downloaded installer: choose **More info → Run anyway**. Signing it needs a code-signing certificate and an Inno Setup `SignTool` line in the `.iss`.
 

@@ -71,6 +71,12 @@ public sealed class ApiClient : IDisposable
 
     public string BaseUrl { get; }
 
+    /// <summary>
+    /// The editor page for a document. The editor routes on the URL's hash, so this is /#/doc/&lt;id&gt;: the server answers
+    /// a plain /doc/&lt;id&gt; too, but with the documents list.
+    /// </summary>
+    public string DocUrl(string id) => $"{BaseUrl}/#/doc/{Uri.EscapeDataString(id)}";
+
     public async Task<bool> HealthAsync(CancellationToken ct)
     {
         try

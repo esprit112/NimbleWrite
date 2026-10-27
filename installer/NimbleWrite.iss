@@ -6,7 +6,7 @@
 ; Nothing from .env is ever packaged: each person adds their own NVIDIA API key after installing.
 
 #ifndef AppVersion
-  #define AppVersion "1.0.2"
+  #define AppVersion "1.0.3"
 #endif
 #ifndef StageDir
   #define StageDir "..\build\stage"

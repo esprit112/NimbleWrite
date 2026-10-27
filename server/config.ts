@@ -29,5 +29,5 @@ export const config = {
   /** The built web editor, served on the API port. */
   distDir: dir(process.env.NIMBLEWRITE_WEB_DIR, path.join(ROOT, 'dist')),
   packaged,
-  version: '1.0.2',
+  version: '1.0.3',
 };

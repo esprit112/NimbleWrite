@@ -43,6 +43,24 @@ async function readJson<T>(file: string): Promise<T | null> {
   }
 }
 
+const escapeHtml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+/**
+ * HTML for a document that arrives as plain text only, such as the text the desktop companion opens in the editor.
+ * The editor shows a document's HTML, never its text, so without this the document opens blank. As in the companion,
+ * every line break starts a paragraph (Notepad and Word end lines with \r; Word also uses \a and \f), which keeps
+ * paragraphs within the checker's size limit. Manual line breaks (\v, U+2028) stay line breaks, and blank lines are
+ * dropped because paragraphs are spaced anyway.
+ */
+export function plainTextToHtml(text: string): string {
+  return text
+    .split(/\r\n|[\n\r\f\u0007\u2029]/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => `<p>${line.split(/[\v\u2028]/).map((part) => escapeHtml(part.trim())).join('<br>')}</p>`)
+    .join('');
+}
+
 const docs = new Map<string, Doc>();
 let loaded = false;
 
@@ -61,7 +79,9 @@ export async function loadStore(): Promise<void> {
   for (const name of await fs.readdir(DOCS_DIR)) {
     if (!name.endsWith('.json')) continue;
     const d = await readJson<Doc>(path.join(DOCS_DIR, name));
-    if (d?.id) docs.set(d.id, { ...d, goals: { ...DEFAULT_GOALS, ...d.goals }, dismissed: d.dismissed ?? [] });
+    // `html ||`: a document saved from plain text alone (the companion's "Open in NimbleWrite") had no HTML and
+    // opened blank. Its text was kept, so show that.
+    if (d?.id) docs.set(d.id, { ...d, html: d.html || plainTextToHtml(d.text ?? ''), goals: { ...DEFAULT_GOALS, ...d.goals }, dismissed: d.dismissed ?? [] });
   }
   loaded = true;
   if (docs.size === 0) await createDoc(WELCOME);
@@ -88,7 +108,7 @@ export async function createDoc(input: { title?: string; html?: string; text?: s
   const doc: Doc = {
     id: randomUUID(),
     title: (input.title ?? '').trim() || 'Untitled document',
-    html: input.html ?? '',
+    html: input.html || plainTextToHtml(text),
     text,
     goals: input.goals ?? (await getSettings()).defaultGoals,
     dismissed: [],
@@ -109,6 +129,9 @@ export async function updateDoc(id: string, patch: Partial<Pick<Doc, 'title' | '
   // Score / dismissal bookkeeping is not an edit, so it must not reorder the documents list.
   const edited = patch.title !== undefined || patch.html !== undefined || patch.text !== undefined || patch.goals !== undefined;
   const next: Doc = { ...cur, ...patch, updatedAt: edited ? Date.now() : cur.updatedAt };
+  // The editor shows html, so new text without new html would never be seen, and the next autosave would undo it.
+  // An empty html counts as none, as in createDoc.
+  if (patch.text !== undefined && !patch.html) next.html = plainTextToHtml(patch.text);
   if (patch.text !== undefined) next.wordCount = countWords(patch.text);
   if (patch.title !== undefined) next.title = patch.title.trim() || 'Untitled document';
   docs.set(id, next);

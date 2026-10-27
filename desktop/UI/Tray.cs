@@ -21,12 +21,14 @@ internal sealed class Tray : IDisposable
     readonly Action quit;
     readonly Action? connect;
     readonly Func<bool> hasKey;
+    readonly Func<bool> shortcutWorks;
     EngineSnapshot? last;
     TrayLook look = (TrayLook)(-1);
     SD.Icon? current;
 
     /// <param name="connect">Opens "Connect to NVIDIA" (installed app only; null hides the menu item).</param>
-    public Tray(DesktopConfig config, Engine engine, string editorUrl, Action quit, Action? connect = null, Func<bool>? hasKey = null)
+    /// <param name="shortcutWorks">False when Windows refused the assistant shortcut (taken by another app, or not valid).</param>
+    public Tray(DesktopConfig config, Engine engine, string editorUrl, Action quit, Action? connect = null, Func<bool>? hasKey = null, Func<bool>? shortcutWorks = null)
     {
         this.config = config;
         this.engine = engine;
@@ -34,6 +36,7 @@ internal sealed class Tray : IDisposable
         this.quit = quit;
         this.connect = connect;
         this.hasKey = hasKey ?? (() => false);
+        this.shortcutWorks = shortcutWorks ?? (() => true);
         menu.Opening += (_, _) => Rebuild();
         icon = new WF.NotifyIcon { Text = "NimbleWrite", ContextMenuStrip = menu, Visible = true };
         icon.MouseUp += (_, e) =>
@@ -135,9 +138,22 @@ internal sealed class Tray : IDisposable
         menu.Items.Add(new WF.ToolStripSeparator());
         menu.Items.Add(Item("Open the NimbleWrite editor", () => Open(editorUrl)));
         if (connect != null) menu.Items.Add(Item(hasKey() ? "NVIDIA API key…" : "Connect to NVIDIA…", connect, "Your own NVIDIA API key turns on AI suggestions"));
-        menu.Items.Add(new WF.ToolStripMenuItem($"Assistant shortcut: {config.Hotkey}") { Enabled = false });
+        menu.Items.Add(new WF.ToolStripMenuItem(ShortcutLabel(config.Hotkey, shortcutWorks())) { Enabled = false });
         menu.Items.Add(new WF.ToolStripSeparator());
         menu.Items.Add(Item("Quit NimbleWrite", quit));
+    }
+
+    /// <summary>
+    /// The menu's line about the assistant shortcut. When Windows refuses the shortcut (another app registered it
+    /// first, or desktop.json holds something that isn't a shortcut), pressing it does nothing, so don't list it as
+    /// working: say why, and point to the badge, which always opens the assistant.
+    /// </summary>
+    internal static string ShortcutLabel(string hotkey, bool registered)
+    {
+        if (registered) return $"Assistant shortcut: {hotkey}";
+        return HotkeyListener.TryParse(hotkey, out _, out _)
+            ? $"{hotkey} is used by another app: click the N badge instead"
+            : $"Shortcut \"{hotkey}\" in desktop.json isn't valid: click the N badge instead";
     }
 
     static WF.ToolStripMenuItem Item(string text, Action onClick, string? tip = null)

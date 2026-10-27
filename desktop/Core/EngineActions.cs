@@ -467,7 +467,7 @@ public sealed partial class Engine
             try
             {
                 string id = await api.CreateDocAsync(title, full, ct).ConfigureAwait(false);
-                Process.Start(new ProcessStartInfo($"{api.BaseUrl}/doc/{id}") { UseShellExecute = true });
+                Process.Start(new ProcessStartInfo(api.DocUrl(id)) { UseShellExecute = true });
             }
             catch (Exception e) when (e is not OperationCanceledException)
             {

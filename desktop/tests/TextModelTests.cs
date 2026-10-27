@@ -190,6 +190,27 @@ public class HotkeyTests
     [InlineData("Ctrl+Alt")]
     [InlineData("Ctrl+Banana")]
     public void RejectsShortcutsWithoutAModifierOrKey(string spec) => Assert.False(HotkeyListener.TryParse(spec, out _, out _));
+
+    [Fact]
+    public void TrayListsTheShortcutAsWorkingOnlyWhenWindowsAcceptedIt()
+    {
+        Assert.Equal("Assistant shortcut: Ctrl+Alt+N", Tray.ShortcutLabel("Ctrl+Alt+N", registered: true));
+        Assert.Equal("Ctrl+Alt+N is used by another app: click the N badge instead", Tray.ShortcutLabel("Ctrl+Alt+N", registered: false));
+        Assert.Equal("Shortcut \"Ctrl+Banana\" in desktop.json isn't valid: click the N badge instead", Tray.ShortcutLabel("Ctrl+Banana", registered: false));
+    }
+}
+
+public class ApiClientTests
+{
+    [Theory]
+    [InlineData("http://127.0.0.1:4317")]
+    [InlineData("http://127.0.0.1:4317/")]
+    public void OpensDocumentsOnTheEditorsHashRoute(string server)
+    {
+        // The web editor routes on the hash (src/router.ts): a plain /doc/<id> would show the documents list instead.
+        using var api = new ApiClient(server);
+        Assert.Equal("http://127.0.0.1:4317/#/doc/0f8fad5b-d9cb-469f-a165-70867728950e", api.DocUrl("0f8fad5b-d9cb-469f-a165-70867728950e"));
+    }
 }
 
 public class DesktopConfigTests

@@ -152,14 +152,19 @@ internal sealed class DesktopApp : Application
             n => d.InvokeAsync(() => ui.OnNotice(n)),
             new ClipboardBridge(d),
             diag);
-        tray = new Tray(config, engine, api.BaseUrl, Quit, ServerLauncher.Packaged ? ShowKeyWindow : null, () => keys.HasKey);
+        tray = new Tray(config, engine, api.BaseUrl, Quit, ServerLauncher.Packaged ? ShowKeyWindow : null, () => keys.HasKey, () => hotkey?.Registered == true);
         ui.Bind(engine, tray);
         hotkey = new HotkeyListener(config.Hotkey, () =>
         {
             engine.ShortcutPressed(); // first, so the engine is ready for the app's reaction to the shortcut's Alt
             ui.TogglePanel();
         });
-        if (!hotkey.Registered) Log.Info($"shortcut {config.Hotkey} is taken by another app");
+        if (!hotkey.Registered)
+        {
+            Log.Info(HotkeyListener.TryParse(config.Hotkey, out _, out _)
+                ? $"shortcut {config.Hotkey} is taken by another app"
+                : $"shortcut \"{config.Hotkey}\" in desktop.json isn't valid");
+        }
         engine.Start();
         ListenForSignals();
         _ = ConnectAsync();
@@ -180,7 +185,8 @@ internal sealed class DesktopApp : Application
         {
             config.Welcomed = true;
             config.Save();
-            tray.Balloon("NimbleWrite is on", $"Write in any app: suggestions appear as you type. {config.Hotkey} opens the assistant.");
+            string assistant = hotkey?.Registered == true ? $"{config.Hotkey} opens the assistant." : "Click the N badge on a text box to open the assistant.";
+            tray.Balloon("NimbleWrite is on", $"Write in any app: suggestions appear as you type. {assistant}");
         }
         if (ServerLauncher.Packaged && !health.NimConfigured && !keys.HasKey && !config.KeyPromptDismissed) ShowKeyWindow();
     }
