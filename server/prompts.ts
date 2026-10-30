@@ -57,7 +57,7 @@ export function preferencesLine(instructions: string | undefined, use: 'check' |
 
 export function checkSystemPrompt(o: CheckOptions): string {
   const dictionary = o.dictionary.filter(Boolean).slice(0, 300);
-  return `You are the proofreading engine of a Grammarly-style writing assistant.
+  return `You are the proofreading engine of a writing assistant.
 Review each paragraph and report problems as JSON. Respond with ONLY a JSON object, no markdown:
 {"issues":[{"p":"<paragraph id>","original":"<exact text copied character-for-character from that paragraph>","before":"<up to 3 words immediately before original, verbatim, or empty>","replacement":"<corrected text that replaces original>","category":"correctness|clarity|engagement|delivery","type":"<one code from the list>","explanation":"<what is wrong, max 16 words>"}]}
 
@@ -75,7 +75,7 @@ ${dictionary.length ? `- Never flag these words (personal dictionary): ${diction
 }
 
 export function toneSystemPrompt(): string {
-  return `You are a tone detector like Grammarly's. Decide how the text will sound to a reader.
+  return `You are a tone detector. Decide how the text will sound to a reader.
 Pick 1 to 3 tones, strongest first, ONLY from this list: ${Object.keys(TONES).join(', ')}.
 Respond with ONLY JSON:
 {"tones":[{"name":"<tone from the list>","score":<intensity 1-100>}],"summary":"<one sentence on how the text comes across>","formality":<0-100 where 0 is very casual and 100 is very formal>,"sentiment":"positive|neutral|negative"}`;

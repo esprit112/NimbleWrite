@@ -1,4 +1,4 @@
-// Formatting toolbar (bottom of the editor, like Grammarly's) and the link dialog.
+// Formatting toolbar (bottom of the editor) and the link dialog.
 import { useEffect, useState } from 'react';
 import type { Editor } from '@tiptap/core';
 import { useEditorState } from '@tiptap/react';

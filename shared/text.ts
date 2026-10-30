@@ -142,7 +142,7 @@ export function formatDuration(sec: number): string {
 export const CATEGORY_WEIGHT: Record<Category, number> = { correctness: 1, clarity: 0.55, engagement: 0.35, delivery: 0.45 };
 
 /**
- * Overall score (0–100) in the spirit of Grammarly's: open issues weighted by severity,
+ * Overall score (0–100): open issues weighted by severity,
  * normalised per 100 words, with a small readability adjustment. Null when there is too little text.
  */
 export function overallScore(wordCount: number, counts: Record<Category, number>, readability: number): number | null {

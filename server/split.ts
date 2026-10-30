@@ -1,5 +1,5 @@
 // Split a model's wide finding (often a whole sentence rewritten at once) into the minimal word-level edits it
-// contains, so every mistake gets its own underline and explanation, Grammarly-style.
+// contains, so every mistake gets its own underline and explanation.
 import { diffWords, isCommonWord } from '../shared/text';
 
 export interface EditHunk {

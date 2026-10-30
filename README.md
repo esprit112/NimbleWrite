@@ -1,6 +1,6 @@
 # NimbleWrite
 
-A Grammarly-style AI writing assistant that runs on **NVIDIA NIM** models. It checks your writing as you type, explains every suggestion, and includes the generative writing tools and agents Grammarly has added recently.
+An AI writing assistant that runs on **NVIDIA NIM** models. It checks your writing as you type, explains every suggestion, and includes generative writing tools and review agents.
 
 [![CI](https://github.com/esprit112/NimbleWrite/actions/workflows/ci.yml/badge.svg)](https://github.com/esprit112/NimbleWrite/actions/workflows/ci.yml) ![categories](https://img.shields.io/badge/suggestions-correctness%20·%20clarity%20·%20engagement%20·%20delivery-0b6b3a) ![models](https://img.shields.io/badge/AI-NVIDIA%20NIM-76b900)
 
@@ -29,17 +29,17 @@ For development with hot reload, run `npm run dev`. This starts the API on :4317
 | `npm run typecheck` | `tsc --noEmit` across client, server, shared code and tests |
 | `node scripts/smoke-api.mjs [check\|misc\|write\|agents\|tools]` | Live API smoke test against NIM (server must be running) |
 
-## Features (mapped to Grammarly)
+## Features
 
-| Grammarly | NimbleWrite |
+| Feature | What it does |
 |---|---|
 | Underlined suggestions with cards (accept, dismiss, add to dictionary) | Colour-coded underlines (red correctness, blue clarity, green engagement, purple delivery). Hover or click for a card, plus a sidebar list with category filters and **Accept all** (one undo step). |
-| Correctness, Clarity, Engagement, Delivery | All four. The NIM check model handles grammar, spelling, word confusion, agreement, punctuation, tone and word choice. Instant local rules cover common misspellings (`libary`, `definately`, `alot`) and missing apostrophes (`dont`, `isnt`) so they're caught every time, plus repeated words, spacing, capitals, English-variant spelling, and wordy or redundant phrases. |
-| Goals (audience, formality, domain, intent) | The same four goals, shown for new documents; they change the model's instructions. |
+| Correctness, Clarity, Engagement, Delivery | Four suggestion categories. The NIM check model handles grammar, spelling, word confusion, agreement, punctuation, tone and word choice. Instant local rules cover common misspellings (`libary`, `definately`, `alot`) and missing apostrophes (`dont`, `isnt`) so they're caught every time, plus repeated words, spacing, capitals, English-variant spelling, and wordy or redundant phrases. |
+| Goals (audience, formality, domain, intent) | Shown for new documents; they change the model's instructions. |
 | Overall score and Performance | Score, word count, reading and speaking time, word and sentence length, Flesch readability, grade level, unique and rare words (outside the 5,000 most common), and a downloadable report. |
 | Tone detector | Top three tones with emoji, formality, sentiment and a one-line summary. |
 | Synonyms (double-click) | Context-aware synonym senses from the model; click one to swap it in. |
-| GrammarlyGO / generative AI | AI Assistant with quick actions (improve, shorten, expand, simplify, professional, friendly, confident, persuasive, fix grammar, summarise, continue, reply, outline, brainstorm) or a free-text instruction. Results stream in with a word-level diff and Replace, Insert or Copy. |
+| AI Assistant (generative writing) | Quick actions (improve, shorten, expand, simplify, professional, friendly, confident, persuasive, fix grammar, summarise, continue, reply, outline, brainstorm) or a free-text instruction. Results stream in with a word-level diff and Replace, Insert or Copy. |
 | Paraphraser agent | Standard, fluent, formal, academic, simple, creative, expand, shorten and custom voice. |
 | AI Humanizer | Rewrites stock AI phrasing (uses Wikipedia's "Signs of AI writing" patterns). |
 | Translate | 30+ languages through Nemotron Ultra (or Riva Translate). |
@@ -49,8 +49,8 @@ For development with hot reload, run `npm run dev`. This starts the API on :4317
 | AI Detector | Per-passage AI likelihood from the model plus statistical signals (sentence rhythm, AI vocabulary, stock transitions, and typos as a human signal). |
 | Plagiarism Checker | Six-word shingle overlap against your other documents, pasted text, source URLs and, optionally, the web (Brave Search). |
 | Documents, upload, download | Document list with search, upload of .docx/.txt/.md/.html (drag and drop works), duplicate, trash and restore. Download as .docx, .txt, .md or .html, print to PDF, or copy rich text. |
-| Personal dictionary, style guide, snippets | All three. Type `\shortcut` and press Space to expand a snippet. |
-| Customise your suggestions in plain language (Grammarly + Go) | **Tune suggestions** chat in the Review panel: say "stop flagging passive voice" or "allow sentence fragments" and NimbleWrite proposes the settings changes (muted suggestion types, standing preferences, dictionary words, style rules). Nothing changes until you press Apply. **Stop suggesting this** on any card switches that kind off, and Settings → Suggestions lists your preferences and switched-off kinds. Preferences are also given to the AI Assistant and the other writing tools. Muting a kind is exact; free-text preferences are followed by the model on a best-effort basis. |
+| Personal dictionary, style guide, snippets | All three live in Settings. Type `\shortcut` and press Space to expand a snippet. |
+| Customise suggestions in plain language | **Tune suggestions** chat in the Review panel: say "stop flagging passive voice" or "allow sentence fragments" and NimbleWrite proposes the settings changes (muted suggestion types, standing preferences, dictionary words, style rules). Nothing changes until you press Apply. **Stop suggesting this** on any card switches that kind off, and Settings → Suggestions lists your preferences and switched-off kinds. Preferences are also given to the AI Assistant and the other writing tools. Muting a kind is exact; free-text preferences are followed by the model on a best-effort basis. |
 | Blank-page ideas | A new, empty document offers starters (draft an email, outline an essay, brainstorm, opening paragraph, cover letter, social post) or a free-text request. The draft streams in and you choose Insert, Retry or Discard. |
 | Language preferences | British, American, Canadian, Australian and Indian English. AI suggestions that would switch your variant (e.g. *organised → organized* for en-GB) are filtered out. |
 | Insights | Words checked and fixes accepted over the last 7 days. |
@@ -91,7 +91,7 @@ It needs the .NET 10 Desktop Runtime (the [installer](#windows-installer) includ
 - **Your preferences apply here too:** suggestion kinds you switched off and the writing preferences you set in the editor (Settings → Suggestions, or the Tune suggestions chat) also shape what the companion underlines and how its rewrites sound.
 - **Tray menu:** turn it on or off, pause for an hour, switch it off for the current app, start with Windows.
 - **How it works:** one background thread uses Windows UI Automation to find the focused field, read its text and measure each issue's position. A click-through, topmost overlay draws the underlines; the badge, card and panel never take focus away from your app. Fixes are applied by selecting the exact range and typing, with a short pause per character. If an app garbles the typing (Windows 11 Notepad repeats the last letter when it falls behind), the companion selects exactly what landed and pastes the intended text instead. Every edit is verified against the expected result. Older WPF apps report text positions without display scaling; the companion detects them and scales the positions so underlines still sit under the words.
-- **Running alongside Grammarly:** Grammarly Desktop and NimbleWrite will both underline the same text. Switch one of them off for that app from its tray menu.
+- **Running alongside other writing assistants:** if another writing app or browser extension is underlining the same text, switch one of them off for that app (NimbleWrite's tray menu has **Turn off in <app>**).
 
 **Privacy.** The companion sees every text box on the PC, so it's deliberately cautious:
 
@@ -149,7 +149,7 @@ The installed app runs its own server on port 4317. It keeps documents and setti
 - **Upgrading:** run a newer setup program. It closes the running copy first, and keeps the install mode and folder of the copy already there (no questions asked).
 - **Moving between "just me" and "all users":** uninstall first (choose No to keep documents, settings and the key), then run Setup again and pick the other option.
 - **Uninstalling:** use Windows Settings → Apps. It asks whether to delete documents, settings and the saved key; the default keeps them.
-- **Unattended installs:** `NimbleWrite-Setup-1.0.4.exe /VERYSILENT /TASKS="startup"` installs silently (add `/ALLUSERS` for Program Files, from an elevated prompt, or `/CURRENTUSER`), and `unins000.exe /VERYSILENT` removes it, keeping user data.
+- **Unattended installs:** `NimbleWrite-Setup-1.0.5.exe /VERYSILENT /TASKS="startup"` installs silently (add `/ALLUSERS` for Program Files, from an elevated prompt, or `/CURRENTUSER`), and `unins000.exe /VERYSILENT` removes it, keeping user data.
 
 **Not code-signed yet.** On other PCs, Windows SmartScreen will say "Windows protected your PC" for a downloaded installer: choose **More info → Run anyway**. Signing it needs a code-signing certificate and an Inno Setup `SignTool` line in the `.iss`.
 

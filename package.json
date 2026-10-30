@@ -1,9 +1,9 @@
 {
   "name": "nimblewrite",
   "private": true,
-  "version": "1.0.4",
+  "version": "1.0.5",
   "license": "MIT",
-  "description": "NimbleWrite: a Grammarly-style AI writing assistant powered by NVIDIA NIM models.",
+  "description": "NimbleWrite: an AI writing assistant powered by NVIDIA NIM models.",
   "type": "module",
   "scripts": {
     "dev": "concurrently -k -n API,WEB -c green,cyan \"tsx watch --clear-screen=false server/index.ts\" \"vite\"",

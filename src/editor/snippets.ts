@@ -1,4 +1,4 @@
-// Snippets: type \trigger then Space/Tab/Enter to expand it (like Grammarly Business snippets).
+// Snippets: type \trigger then Space/Tab/Enter to expand it.
 import { Extension } from '@tiptap/core';
 import type { Snippet } from '../../shared/types';
 
