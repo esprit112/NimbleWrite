@@ -46,6 +46,15 @@ function goalGuidance(g: Goals): string {
   return lines.join('\n');
 }
 
+/** The writer's own standing preferences as one prompt line, or '' when there are none. */
+export function preferencesLine(instructions: string | undefined, use: 'check' | 'write'): string {
+  const text = (instructions ?? '').replace(/[ \t]+/g, ' ').replace(/\s*\n\s*/g, '\n').trim().slice(0, 1500);
+  if (!text) return '';
+  return use === 'check'
+    ? `\nIMPORTANT, the writer's own rules. They override everything above except the JSON format. If a rule says not to flag something, report nothing of that kind; if it says to flag something, report it:\n${text}`
+    : `The writer's standing preferences (follow them unless this request says otherwise): ${text}`;
+}
+
 export function checkSystemPrompt(o: CheckOptions): string {
   const dictionary = o.dictionary.filter(Boolean).slice(0, 300);
   return `You are the proofreading engine of a Grammarly-style writing assistant.
@@ -62,7 +71,7 @@ Rules:
 - English variant: ${DIALECT_NAME[o.dialect]}. ${DIALECT_NOTE[o.dialect]}
 ${goalGuidance(o.goals)}
 ${dictionary.length ? `- Never flag these words (personal dictionary): ${dictionary.join(', ')}.` : ''}
-- Do not flag names, URLs, code, or style that is already fine. If a paragraph has no problems, report nothing for it. No issues at all -> {"issues":[]}`;
+- Do not flag names, URLs, code, or style that is already fine. If a paragraph has no problems, report nothing for it. No issues at all -> {"issues":[]}${preferencesLine(o.instructions, 'check')}`;
 }
 
 export function toneSystemPrompt(): string {
@@ -109,12 +118,12 @@ const PARAPHRASE: Record<ParaphraseMode, string> = {
   custom: 'the voice described below',
 };
 
-export function writeMessages(r: WriteRequest, dialect: Dialect, goals: Goals): { role: 'system' | 'user' | 'assistant'; content: string }[] {
+export function writeMessages(r: WriteRequest, dialect: Dialect, goals: Goals, instructions = ''): { role: 'system' | 'user' | 'assistant'; content: string }[] {
   const base = `You are NimbleWrite's AI writing assistant, an expert editor and writer.
 Use ${DIALECT_NAME[dialect]} spelling and conventions.
 Writing goals: ${goals.audience} audience, ${goals.formality} formality, ${goals.domain} domain${goals.intent.length ? `, intent: ${goals.intent.join(', ').replace('tell_story', 'tell a story')}` : ''}.
 Output ONLY the requested text: no preamble, no explanation, no quotation marks around it, and never several alternative versions.
-Preserve the author's meaning, facts, names and numbers. Use Markdown only for lists or headings when they genuinely help.`;
+Preserve the author's meaning, facts, names and numbers. Use Markdown only for lists or headings when they genuinely help.${instructions.trim() ? `\n${preferencesLine(instructions, 'write')}` : ''}`;
 
   const textBlock = r.text.trim() ? `Text:\n"""\n${r.text}\n"""` : '';
   const ctx = r.context?.trim() && r.context.trim() !== r.text.trim()

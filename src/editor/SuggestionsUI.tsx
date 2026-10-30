@@ -1,17 +1,20 @@
 // Suggestion cards (sidebar + inline popover), the Review panel and the synonym popover.
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { BookA, Check, ChevronDown, CircleCheck, Ellipsis, Sparkles, Trash } from 'lucide-react';
+import { BellOff, BookA, Check, ChevronDown, CircleCheck, Ellipsis, Sparkles, Trash } from 'lucide-react';
 import type { Category, SynonymSense } from '../../shared/types';
 import { CATEGORIES } from '../../shared/types';
 import { CATEGORY_META } from '../../shared/meta';
 import type { PlacedSuggestion } from './suggestions';
 import { Button, cx, EmptyState, ScoreRing, Spinner } from '../components/ui';
+import { TuneBox } from './TuneBox';
 
 export interface SuggestionActions {
   onAccept: (s: PlacedSuggestion, replacement: string) => void;
   onDismiss: (s: PlacedSuggestion) => void;
   onAddToDictionary: (s: PlacedSuggestion) => void;
+  /** Never show this kind of suggestion again (Settings → Suggestions lists the muted kinds). */
+  onMuteType: (s: PlacedSuggestion) => void;
 }
 
 function Change({ s, onPick }: { s: PlacedSuggestion; onPick?: (r: string) => void }) {
@@ -89,13 +92,13 @@ export function SuggestionCard({ s, expanded, onExpand, actions, onHover, compac
                 <Change s={s} onPick={(r) => actions.onAccept(s, r)} />
               </div>
               {s.explanation && <p className="mt-2.5 text-sm leading-relaxed text-slate-600 dark:text-slate-400">{s.explanation}</p>}
-              <div className="mt-3 flex items-center gap-1 border-t border-slate-100 pt-2 dark:border-slate-800">
+              <div className="mt-3 flex flex-wrap items-center gap-x-1 gap-y-0.5 border-t border-slate-100 pt-2 dark:border-slate-800">
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
                     actions.onDismiss(s);
                   }}
-                  className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[13px] text-slate-500 hover:bg-slate-100 hover:text-slate-800 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+                  className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-md px-2 py-1 text-[13px] text-slate-500 hover:bg-slate-100 hover:text-slate-800 dark:hover:bg-slate-800 dark:hover:text-slate-200"
                 >
                   <Trash className="size-3.5" /> Dismiss
                 </button>
@@ -105,9 +108,21 @@ export function SuggestionCard({ s, expanded, onExpand, actions, onHover, compac
                       e.stopPropagation();
                       actions.onAddToDictionary(s);
                     }}
-                    className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[13px] text-slate-500 hover:bg-slate-100 hover:text-slate-800 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+                    className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-md px-2 py-1 text-[13px] text-slate-500 hover:bg-slate-100 hover:text-slate-800 dark:hover:bg-slate-800 dark:hover:text-slate-200"
                   >
                     <BookA className="size-3.5" /> Add to dictionary
+                  </button>
+                )}
+                {s.type !== 'style_guide' && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      actions.onMuteType(s);
+                    }}
+                    title={`Never suggest “${s.title}” again`}
+                    className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-md px-2 py-1 text-[13px] text-slate-500 hover:bg-slate-100 hover:text-slate-800 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+                  >
+                    <BellOff className="size-3.5" /> Stop suggesting this
                   </button>
                 )}
               </div>
@@ -198,6 +213,7 @@ export function SuggestionsPanel({ items, expandedId, setExpandedId, onHoverItem
           </Button>
         </div>
       )}
+      <TuneBox />
     </div>
   );
 }

@@ -5,6 +5,8 @@ import * as cheerio from 'cheerio';
 import mammoth from 'mammoth';
 import { marked } from 'marked';
 import { CATEGORIES } from '../../shared/types';
+import { ISSUE_TYPES } from '../../shared/meta';
+import { MAX_INSTRUCTIONS } from '../../shared/tune';
 import type { CitationMeta, CitationStyle, HealthResponse, InsightsResponse, KeyTestResult } from '../../shared/types';
 import { config } from '../config';
 import { chat, listChatModels, testApiKey } from '../nim';
@@ -168,6 +170,8 @@ const SettingsBody = z.object({
   snippets: z.array(z.object({ id: z.string().max(64), trigger: z.string().regex(/^[\w-]{1,30}$/), text: z.string().max(5000) })).max(200),
   models: z.object({ check: z.string().min(3).max(120), write: z.string().min(3).max(120), translate: z.string().min(3).max(120) }),
   theme: z.enum(['light', 'dark', 'system']),
+  customInstructions: z.string().max(MAX_INSTRUCTIONS).default(''),
+  mutedTypes: z.array(z.enum(ISSUE_TYPES as [string, ...string[]])).max(60).default([]),
 });
 
 dataRouter.get('/settings', async (_req, res) => {
@@ -177,6 +181,7 @@ dataRouter.get('/settings', async (_req, res) => {
 dataRouter.put('/settings', async (req, res) => {
   const next = SettingsBody.parse(req.body);
   next.dictionary = [...new Set(next.dictionary)];
+  next.mutedTypes = [...new Set(next.mutedTypes)];
   res.json(await saveSettings(next));
 });
 

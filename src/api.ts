@@ -1,7 +1,7 @@
 // Typed client for the NimbleWrite API (all AI calls go through the server; the key never reaches the browser).
 import type {
   AiDetectResult, CheckOptions, CheckParagraph, CheckResponse, CitationMeta, ClaimToCite, Doc, DocSummary, FormattedCitation,
-  GraderResult, HealthResponse, InsightsResponse, PlagiarismResult, ReaderReactions, Settings, SynonymSense, ToneResult, WriteRequest,
+  GraderResult, HealthResponse, InsightsResponse, PlagiarismResult, ReaderReactions, Settings, SynonymSense, ToneResult, TuneResult, WriteRequest,
 } from '../shared/types';
 
 export class ApiError extends Error {
@@ -59,6 +59,7 @@ export const api = {
       paragraphs: paragraphs.slice(0, 24).map((p) => ({ id: p.id, text: p.text.slice(0, 6000) })),
       options: { ...options, dictionary: options.dictionary.slice(0, 2000) },
     }, signal),
+  tune: (message: string, signal?: AbortSignal) => post<TuneResult>('/ai/tune', { message: message.slice(0, 800) }, signal),
   tone: (text: string, signal?: AbortSignal) => post<ToneResult>('/ai/tone', { text: text.slice(0, 20_000) }, signal),
   synonyms: (word: string, sentence: string, dialect: string, signal?: AbortSignal) =>
     post<{ senses: SynonymSense[] }>('/ai/synonyms', { word: word.slice(0, 60), sentence: sentence.slice(0, 1200), dialect }, signal),

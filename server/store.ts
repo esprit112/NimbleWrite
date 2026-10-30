@@ -26,6 +26,8 @@ export const DEFAULT_SETTINGS: Settings = {
   ],
   models: { check: config.nim.checkModel, write: config.nim.writeModel, translate: config.nim.translateModel },
   theme: 'system',
+  customInstructions: '',
+  mutedTypes: [],
 };
 
 async function writeAtomic(file: string, data: unknown): Promise<void> {

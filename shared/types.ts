@@ -70,6 +70,23 @@ export interface Settings {
   snippets: Snippet[];
   models: ModelSettings;
   theme: 'light' | 'dark' | 'system';
+  /** The writer's own standing preferences, in plain language. Given to the proofreader and the writing tools. */
+  customInstructions: string;
+  /** Issue type codes (see ISSUE_TYPES) the writer never wants to see suggestions for. */
+  mutedTypes: string[];
+}
+
+/** One settings change proposed by the "Tune suggestions" chat. Nothing is applied until the writer confirms it. */
+export type TuneChange =
+  | { kind: 'instruction'; text: string }
+  | { kind: 'mute'; type: string; title: string }
+  | { kind: 'unmute'; type: string; title: string }
+  | { kind: 'dictionary'; word: string }
+  | { kind: 'style_rule'; find: string; replace: string; note?: string };
+
+export interface TuneResult {
+  reply: string;
+  changes: TuneChange[];
 }
 
 export interface DocSummary {
@@ -102,6 +119,8 @@ export interface CheckOptions {
   dictionary: string[];
   categories: Category[];
   model?: string;
+  /** The writer's standing preferences (Settings.customInstructions). */
+  instructions?: string;
 }
 
 export interface CheckResult {

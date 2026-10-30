@@ -14,6 +14,8 @@ const settings = (over: Partial<Settings> = {}): Settings => ({
   snippets: [],
   models: { check: 'nvidia/check', write: 'nvidia/write', translate: 'nvidia/translate' },
   theme: 'system',
+  customInstructions: '',
+  mutedTypes: [],
   ...over,
 });
 

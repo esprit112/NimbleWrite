@@ -8,14 +8,15 @@ import { alreadyApplied, hashText } from '../shared/text';
 
 /** Fingerprint of every setting that changes which suggestions a paragraph gets (dictionary excluded: it only filters). */
 export function assistFingerprint(s: Settings): string {
-  return hashText(JSON.stringify([s.dialect, s.defaultGoals, CATEGORIES.filter((c) => s.categories[c]), s.localRules, s.styleRules, s.models.check]));
+  return hashText(JSON.stringify([s.dialect, s.defaultGoals, CATEGORIES.filter((c) => s.categories[c]), s.localRules, s.styleRules, s.models.check, s.customInstructions, [...s.mutedTypes].sort()]));
 }
 
 /** AI findings plus local rules for one paragraph, filtered the same way the web editor filters them. */
 export function mergeAssistIssues(text: string, ai: Issue[], s: Settings): Issue[] {
   const rules = runLocalRules(text, { dialect: s.dialect, styleRules: s.styleRules, mechanics: s.localRules });
   const dict = new Set(s.dictionary.map((w) => w.toLowerCase()));
-  return dedupeIssues([...ai, ...rules])
+  const muted = new Set(s.mutedTypes);
+  return dedupeIssues([...ai, ...rules].filter((i) => !muted.has(i.type)))
     .filter((i) => s.categories[i.category])
     .filter((i) => !((i.type === 'spelling' || i.type === 'dialect') && dict.has(i.original.toLowerCase().trim())))
     .filter((i) => text.slice(i.offset, i.offset + i.length) === i.original)

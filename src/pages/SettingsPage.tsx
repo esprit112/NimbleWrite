@@ -4,7 +4,8 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { ArrowLeft, BookA, Cpu, Keyboard, Monitor, Moon, Palette, Plus, Ruler, Search, SpellCheck, Sun, Target, Trash2, X } from 'lucide-react';
 import type { Category, ModelSettings, Settings, Snippet, StyleRule } from '../../shared/types';
 import { CATEGORIES, DIALECTS } from '../../shared/types';
-import { CATEGORY_META } from '../../shared/meta';
+import { CATEGORY_META, categoryForType, titleForType } from '../../shared/meta';
+import { MAX_INSTRUCTIONS } from '../../shared/tune';
 import { api } from '../api';
 import { navigate } from '../router';
 import { toast, useSettings } from '../store';
@@ -130,6 +131,7 @@ function SuggestionsSection({ settings, update }: SectionProps) {
           </Row>
         </div>
       </Card>
+      <PreferencesCard settings={settings} update={update} />
       <Card title="Default goals for new documents" description="Goals tailor suggestions to your audience, formality, domain and intent. You can change them per document.">
         <GoalsPicker goals={settings.defaultGoals} onChange={(g) => void update({ defaultGoals: g })} />
         <div className="mt-5 border-t border-slate-100 pt-3 dark:border-slate-800">
@@ -139,6 +141,45 @@ function SuggestionsSection({ settings, update }: SectionProps) {
         </div>
       </Card>
     </>
+  );
+}
+
+function PreferencesCard({ settings, update }: SectionProps) {
+  const [text, setText] = useState(settings.customInstructions);
+  // The Tune suggestions chat can change these too, so follow the saved value when it changes underneath us.
+  useEffect(() => setText(settings.customInstructions), [settings.customInstructions]);
+  const dirty = text !== settings.customInstructions;
+  return (
+    <Card title="Your writing preferences" description="Plain-language rules NimbleWrite follows when it checks and writes for you. You can also set them from the Tune suggestions chat in the editor.">
+      <textarea
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        rows={4}
+        maxLength={MAX_INSTRUCTIONS}
+        placeholder={'e.g.\n- Keep my sentences long; I write in a flowing style.\n- Allow sentence fragments in dialogue.\n- Never suggest American spellings.'}
+        className={cx(inputClass, 'resize-y')}
+      />
+      <div className="mt-2 flex items-center gap-2">
+        <Button variant="primary" disabled={!dirty} onClick={() => void update({ customInstructions: text.trim() }).then(() => toast('Preferences saved', 'success'))}>Save preferences</Button>
+        {dirty && <Button variant="ghost" onClick={() => setText(settings.customInstructions)}>Undo</Button>}
+        <span className="ml-auto text-xs text-slate-400">{text.length}/{MAX_INSTRUCTIONS}</span>
+      </div>
+      <div className="mt-5 border-t border-slate-100 pt-4 dark:border-slate-800">
+        <div className="text-sm font-medium text-slate-800 dark:text-slate-100">Suggestions you’ve switched off</div>
+        {settings.mutedTypes.length === 0 ? (
+          <p className="mt-1 text-sm text-slate-400">None. Use “Stop suggesting this” on a suggestion card to switch a kind off.</p>
+        ) : (
+          <div className="mt-2 flex flex-wrap gap-2">
+            {settings.mutedTypes.map((t) => (
+              <span key={t} className="inline-flex items-center gap-1 rounded-full bg-slate-100 py-1 pl-3 pr-1 text-sm text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                {titleForType(t, categoryForType(t))}
+                <button onClick={() => void update({ mutedTypes: settings.mutedTypes.filter((x) => x !== t) })} className="rounded-full px-2 py-0.5 text-xs font-medium text-brand-700 hover:bg-slate-200 dark:text-brand-300 dark:hover:bg-slate-700">Bring back</button>
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+    </Card>
   );
 }
 

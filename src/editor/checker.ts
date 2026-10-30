@@ -18,6 +18,8 @@ export interface CheckerContext {
   localRules: boolean;
   dismissed: Set<string>;
   model: string;
+  instructions: string;
+  mutedTypes: string[];
 }
 
 export type CheckerStatus = { state: 'idle' | 'checking' | 'error'; message?: string; pending: number };
@@ -57,7 +59,7 @@ export class Checker {
   /** Fingerprint of everything that changes what the model would say. */
   private fp(c: CheckerContext): string {
     const cats = (Object.keys(c.categories) as Category[]).filter((k) => c.categories[k]).sort();
-    return hashText(JSON.stringify([c.dialect, c.goals, cats, c.model]));
+    return hashText(JSON.stringify([c.dialect, c.goals, cats, c.model, c.instructions]));
   }
 
   private emit(): void {
@@ -123,7 +125,7 @@ export class Checker {
       this.active++;
       const categories = (Object.keys(c.categories) as Category[]).filter((k) => c.categories[k]);
       api
-        .check(batch.map((b) => ({ id: b.key, text: b.text })), { dialect: c.dialect, goals: c.goals, dictionary: c.dictionary, categories, model: c.model })
+        .check(batch.map((b) => ({ id: b.key, text: b.text })), { dialect: c.dialect, goals: c.goals, dictionary: c.dictionary, categories, model: c.model, instructions: c.instructions })
         .then((res) => {
           for (const r of res.results) this.store(`${fp}:${r.id}`, r.issues);
           this.lastError = '';
@@ -158,6 +160,8 @@ export class Checker {
     const view = this.editor.view;
     const current = getSuggestions(view.state).items;
     const dict = new Set(c.dictionary.map((w) => w.toLowerCase()));
+    // Muting only filters what is shown, so un-muting brings the cached suggestions straight back.
+    const muted = new Set(c.mutedTypes);
     const rulesFp = hashText(JSON.stringify([c.dialect, c.styleRules, c.localRules]));
     if (rulesFp !== this.rulesFp) {
       this.ruleCache.clear();
@@ -175,7 +179,7 @@ export class Checker {
       const cached = this.cache.get(`${fp}:${b.key}`);
       // While a changed paragraph waits for the model, keep its still-valid AI underlines.
       const ai = cached ?? current.filter((s) => s.source === 'ai' && s.from >= b.from && s.to <= end).map((s) => toRelative(s, b));
-      for (const i of dedupeIssues([...ai, ...rules])) {
+      for (const i of dedupeIssues([...ai, ...rules].filter((x) => !muted.has(x.type)))) {
         if (!c.categories[i.category]) continue;
         if ((i.type === 'spelling' || i.type === 'dialect') && dict.has(i.original.toLowerCase().trim())) continue;
         const sig = signature(b.text, i);

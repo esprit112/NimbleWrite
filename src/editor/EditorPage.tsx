@@ -22,6 +22,7 @@ import {
   applySuggestion, applySuggestionsBatch, getSuggestions, removeSuggestion, setActiveSuggestion, Suggestions, type PlacedSuggestion,
 } from './suggestions';
 import { Snippets } from './snippets';
+import { Starters } from './Starters';
 import { SuggestionPopover, SuggestionsPanel, SynonymPopover, type SuggestionActions } from './SuggestionsUI';
 import { GoalsModal, PerformanceModal } from './Dialogs';
 import { FormatToolbar } from './Toolbar';
@@ -105,6 +106,8 @@ function DocumentEditor({ initial, settings, health }: { initial: Doc; settings:
     localRules: settings.localRules,
     dismissed,
     model: settings.models.check,
+    instructions: settings.customInstructions,
+    mutedTypes: settings.mutedTypes,
   };
   const checkerRef = useRef<Checker | null>(null);
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -243,7 +246,7 @@ function DocumentEditor({ initial, settings, health }: { initial: Doc; settings:
       return;
     }
     checkerRef.current?.refresh();
-  }, [goals, dismissed, settings.dialect, settings.categories, settings.models.check, settings.dictionary, settings.styleRules, settings.localRules]);
+  }, [goals, dismissed, settings.dialect, settings.categories, settings.models.check, settings.dictionary, settings.styleRules, settings.localRules, settings.customInstructions, settings.mutedTypes]);
 
   // ---- stats, score and tone ----
   const stats = useMemo(() => computeStats(text), [text]);
@@ -342,7 +345,21 @@ function DocumentEditor({ initial, settings, health }: { initial: Doc; settings:
     [editor, updateSettings],
   );
 
-  const actions: SuggestionActions = useMemo(() => ({ onAccept: accept, onDismiss: dismiss, onAddToDictionary: addToDictionary }), [accept, dismiss, addToDictionary]);
+  const muteType = useCallback(
+    (s: PlacedSuggestion) => {
+      if (!editor) return;
+      const current = settingsRef.current.mutedTypes;
+      if (!current.includes(s.type)) void updateSettings({ mutedTypes: [...current, s.type] });
+      setPopover(null);
+      toast(`You won’t see “${s.title}” suggestions any more. Bring them back in Settings → Suggestions.`, 'success');
+    },
+    [editor, updateSettings],
+  );
+
+  const actions: SuggestionActions = useMemo(
+    () => ({ onAccept: accept, onDismiss: dismiss, onAddToDictionary: addToDictionary, onMuteType: muteType }),
+    [accept, dismiss, addToDictionary, muteType],
+  );
 
   const acceptAll = useCallback(
     (cat: Category | 'all') => {
@@ -600,7 +617,10 @@ function DocumentEditor({ initial, settings, health }: { initial: Doc; settings:
         <div className="flex min-w-0 flex-1 flex-col">
           <div className="nw-scroll nw-print-root min-h-0 flex-1 overflow-y-auto">
             <div className={cx('mx-auto px-6 pb-40 pt-10 sm:px-12', focusMode ? 'max-w-3xl' : 'max-w-[760px]', !showUnderlines && 'nw-hide-sg')}>
-              <EditorContent editor={editor} className="nw-editor font-serif text-slate-800 dark:text-slate-100" />
+              <div className="relative">
+                <EditorContent editor={editor} className="nw-editor font-serif text-slate-800 dark:text-slate-100" />
+                {stats.words === 0 && <Starters editor={editor} goals={goals} />}
+              </div>
             </div>
           </div>
           {/* bottom bar */}

@@ -1,7 +1,7 @@
 // AI endpoints: proofreading, tone, synonyms, streaming writing help and the agents.
 import { Router, type Request, type Response } from 'express';
 import { z } from 'zod';
-import type { AiDetectResult, AssistResponse, CheckOptions, CheckParagraph, CheckResponse, ClaimToCite, GraderResult, Issue, ReaderReactions, SynonymSense, ToneResult } from '../../shared/types';
+import type { AiDetectResult, AssistResponse, CheckOptions, CheckParagraph, CheckResponse, ClaimToCite, GraderResult, Issue, ReaderReactions, SynonymSense, ToneResult, TuneResult } from '../../shared/types';
 import { CATEGORIES } from '../../shared/types';
 import { TONES } from '../../shared/meta';
 import { countWords, sentences } from '../../shared/text';
@@ -14,6 +14,8 @@ import { getSettings, recordCheck } from '../store';
 import { heuristicSignals } from '../detect';
 import { assistFingerprint, mergeAssistIssues } from '../assist';
 import { dialectMap } from '../../shared/rules';
+import { MAX_INSTRUCTIONS } from '../../shared/tune';
+import { parseTuneResult, tuneSystemPrompt } from '../tune';
 
 export const aiRouter = Router();
 
@@ -33,6 +35,7 @@ const CheckBody = z.object({
     goals,
     dictionary: z.array(z.string().max(80)).max(2000).default([]),
     categories: z.array(category).min(1).default([...CATEGORIES]),
+    instructions: z.string().max(MAX_INSTRUCTIONS).default(''),
   }),
 });
 
@@ -106,7 +109,7 @@ aiRouter.post('/assist', async (req, res) => {
     try {
       const r = await checkParagraphs(
         forAi,
-        { dialect: settings.dialect, goals: settings.defaultGoals, dictionary: settings.dictionary, categories },
+        { dialect: settings.dialect, goals: settings.defaultGoals, dictionary: settings.dictionary, categories, instructions: settings.customInstructions },
         abortOnClose(res).signal,
       );
       aiById = new Map(r.results.map((x) => [x.id, x.issues]));
@@ -156,6 +159,26 @@ aiRouter.post('/tone', async (req, res) => {
       const sentiment = o.sentiment === 'positive' || o.sentiment === 'negative' ? o.sentiment : 'neutral';
       return { tones, summary: String(o.summary ?? ''), formality: Math.max(0, Math.min(100, Math.round(Number(o.formality) || 50))), sentiment };
     },
+  );
+  res.json(data);
+});
+
+const TuneBody = z.object({ message: z.string().trim().min(2).max(800) });
+
+/** Proposes settings changes from a plain-language request. The browser shows them and applies only what the writer confirms. */
+aiRouter.post('/tune', async (req, res) => {
+  const { message } = TuneBody.parse(req.body);
+  const settings = await getSettings();
+  const { data } = await chatJson<TuneResult>(
+    {
+      model: settings.models.check,
+      temperature: 0.1,
+      maxTokens: 700,
+      timeoutMs: 45_000,
+      signal: abortOnClose(res).signal,
+      messages: [{ role: 'system', content: tuneSystemPrompt(settings) }, { role: 'user', content: message }],
+    },
+    (v) => parseTuneResult(v, settings),
   );
   res.json(data);
 });
@@ -230,7 +253,7 @@ aiRouter.post('/write', async (req, res) => {
         maxTokens,
         signal: ac.signal,
         timeoutMs: 120_000,
-        messages: writeMessages(body, d, g),
+        messages: writeMessages(body, d, g, settings.customInstructions),
       },
       (t) => send('delta', { t }),
     );
