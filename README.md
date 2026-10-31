@@ -149,7 +149,7 @@ The installed app runs its own server on port 4317. It keeps documents and setti
 - **Upgrading:** run a newer setup program. It closes the running copy first, and keeps the install mode and folder of the copy already there (no questions asked).
 - **Moving between "just me" and "all users":** uninstall first (choose No to keep documents, settings and the key), then run Setup again and pick the other option.
 - **Uninstalling:** use Windows Settings → Apps. It asks whether to delete documents, settings and the saved key; the default keeps them.
-- **Unattended installs:** `NimbleWrite-Setup-1.0.5.exe /VERYSILENT /TASKS="startup"` installs silently (add `/ALLUSERS` for Program Files, from an elevated prompt, or `/CURRENTUSER`), and `unins000.exe /VERYSILENT` removes it, keeping user data.
+- **Unattended installs:** `NimbleWrite-Setup-1.0.6.exe /VERYSILENT /TASKS="startup"` installs silently (add `/ALLUSERS` for Program Files, from an elevated prompt, or `/CURRENTUSER`), and `unins000.exe /VERYSILENT` removes it, keeping user data.
 
 **Not code-signed yet.** On other PCs, Windows SmartScreen will say "Windows protected your PC" for a downloaded installer: choose **More info → Run anyway**. Signing it needs a code-signing certificate and an Inno Setup `SignTool` line in the `.iss`.
 

@@ -50,6 +50,19 @@ describe('server config for the installed app', () => {
     const pkg = JSON.parse(readFileSync(path.join(ROOT, 'package.json'), 'utf8')) as { version: string };
     expect(config.version).toBe(pkg.version);
   });
+
+  it('states the same version in every file that carries one', async () => {
+    const { ROOT } = await loadConfig({});
+    const read = (rel: string) => readFileSync(path.join(ROOT, rel), 'utf8');
+    const v = (JSON.parse(read('package.json')) as { version: string }).version;
+    const lock = JSON.parse(read('package-lock.json')) as { version: string; packages: Record<string, { version: string }> };
+    expect(lock.version).toBe(v);
+    expect(lock.packages[''].version).toBe(v);
+    expect(/<Version>([^<]+)<\/Version>/.exec(read('desktop/NimbleWrite.Desktop.csproj'))?.[1]).toBe(v);
+    expect(/#define AppVersion "([^"]+)"/.exec(read('installer/NimbleWrite.iss'))?.[1]).toBe(v);
+    expect(/<assemblyIdentity version="([^"]+)"/.exec(read('desktop/app.manifest'))?.[1]).toBe(`${v}.0`);
+    expect(/NimbleWrite-Setup-([\d.]+)\.exe/.exec(read('README.md'))?.[1]).toBe(v);
+  });
 });
 
 describe('testing an NVIDIA key before it is saved', () => {
