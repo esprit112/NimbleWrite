@@ -3,15 +3,15 @@
 import { useEffect, useRef, useState } from 'react';
 import DOMPurify from 'dompurify';
 import {
-  Drama, ExternalLink, FileUp, GraduationCap, Languages, Quote, ScanSearch, Search,
+  ArrowRight, ClipboardCheck, Copy, Drama, ExternalLink, FileUp, GraduationCap, Image as ImageIcon, Languages, Quote, RotateCcw, ScanSearch, Search,
   Send, ShieldCheck, Sparkles, UserRound, WandSparkles, BookOpenCheck,
 } from 'lucide-react';
-import type { AiDetectResult, CitationMeta, CitationStyle, ClaimToCite, FormattedCitation, GraderResult, ParaphraseMode, PlagiarismResult, ReaderReactions, WriteTask } from '../../../shared/types';
+import type { AiDetectResult, CitationMeta, CitationStyle, ClaimToCite, FormattedCitation, GraderResult, ImagePromptResult, ImagePromptTarget, ParaphraseMode, PlagiarismResult, ReaderReactions, WriteTask } from '../../../shared/types';
 import { LANGUAGES, PARAPHRASE_MODES } from '../../../shared/meta';
 import { api } from '../../api';
 import { toast, useSettings } from '../../store';
 import { Button, cx, Pill, Spinner } from '../../components/ui';
-import { findText, getTarget, selectRange } from '../editorUtils';
+import { findText, getTarget, insertAfter, selectRange } from '../editorUtils';
 import {
   ErrorNote, Field, inputClass, PanelShell, ResultCard, resolveTarget, TargetPicker, useAsync, useWriter, type PanelContext, type TargetChoice,
 } from './common';
@@ -551,6 +551,93 @@ export function PlagiarismPanel({ ctx, searchConfigured, packaged = false }: { c
   );
 }
 
+const IMAGE_TARGETS: { id: ImagePromptTarget; label: string; hint: string }[] = [
+  { id: 'flux3', label: 'FLUX.3', hint: 'Caption-grammar prose: style first, then scene/lighting/camera, then subjects anchored to frame position' },
+  { id: 'flux2', label: 'FLUX.2', hint: 'Flexible keyword/physics-first style: medium, Kelvin lighting, camera, subject, palette' },
+];
+
+export function ImagePromptPanel({ ctx }: { ctx: PanelContext }) {
+  const [idea, setIdea] = useState('');
+  const [target, setTarget] = useState<ImagePromptTarget>('flux3');
+  const [enhance, setEnhance] = useState(true);
+  const [copied, setCopied] = useState(false);
+  const state = useAsync<ImagePromptResult>();
+
+  const run = () => {
+    if (!idea.trim()) return toast('Describe the image you want first.');
+    setCopied(false);
+    void state.run(() => api.imagePrompt(idea.trim(), target, enhance));
+  };
+  const useSelection = () => {
+    const sel = getTarget(ctx.editor, 'selection');
+    if (sel.kind !== 'selection' || !sel.text.trim()) return toast('Select some text in the document first.');
+    setIdea(sel.text.trim());
+  };
+  const copy = async () => {
+    if (!state.data) return;
+    await navigator.clipboard.writeText(state.data.prompt);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
+  const insert = () => {
+    if (!state.data) return;
+    insertAfter(ctx.editor, ctx.editor.state.selection.to, state.data.prompt);
+    toast('Inserted into the document', 'success');
+  };
+
+  return (
+    <PanelShell icon={<ImageIcon className="size-4" />} title="Image Prompt Formatter" subtitle="Turn a rough idea into a correctly-formatted FLUX.2 or FLUX.3 image prompt.">
+      <div>
+        <div className="mb-1.5 text-xs font-medium text-slate-500 dark:text-slate-400">Target model</div>
+        <div className="flex flex-wrap gap-1.5">
+          {IMAGE_TARGETS.map((t) => (
+            <Pill key={t.id} selected={target === t.id} onClick={() => setTarget(t.id)} title={t.hint}>{t.label}</Pill>
+          ))}
+        </div>
+        <p className="mt-1 text-[11px] text-slate-400">{IMAGE_TARGETS.find((t) => t.id === target)?.hint}</p>
+      </div>
+      <div>
+        <div className="mb-1.5 flex items-center justify-between">
+          <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Your idea</span>
+          <button onClick={useSelection} className="text-[11px] font-medium text-brand-700 hover:underline dark:text-brand-300">Use selection</button>
+        </div>
+        <textarea
+          value={idea}
+          onChange={(e) => setIdea(e.target.value)}
+          rows={5}
+          placeholder="e.g. A circle of golden roses on dark stone, lit by cyan and gold light, with child silhouettes standing around it"
+          className={cx(inputClass, 'resize-y')}
+        />
+      </div>
+      <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
+        <input type="checkbox" checked={enhance} onChange={(e) => setEnhance(e.target.checked)} className="size-4 accent-brand-600" />
+        Improve and add detail (lighting, camera, texture) instead of just reformatting what I wrote
+      </label>
+      <Button variant="primary" className="w-full" onClick={run} loading={state.loading}>
+        <ImageIcon className="size-4" /> Format prompt
+      </Button>
+      {state.loading && <p className="text-center text-xs text-slate-500">Writing the prompt… (usually 5–15 s)</p>}
+      <ErrorNote message={state.error} />
+      {state.data && (
+        <div className="nw-pop rounded-xl border border-brand-200 bg-brand-50/40 dark:border-brand-800 dark:bg-brand-950/30">
+          <div className="flex items-center justify-between gap-2 px-3.5 pt-3">
+            <span className="flex min-w-0 items-center gap-1.5 text-xs font-semibold text-brand-700 dark:text-brand-300">
+              <WandSparkles className="size-3.5" /> {IMAGE_TARGETS.find((t) => t.id === target)?.label} prompt
+              <span className="truncate font-normal text-slate-400">· {(state.data.ms / 1000).toFixed(1)} s</span>
+            </span>
+          </div>
+          <p className="whitespace-pre-wrap px-3.5 py-2.5 text-[14.5px] leading-relaxed text-slate-800 dark:text-slate-100">{state.data.prompt}</p>
+          <div className="flex flex-wrap items-center gap-1.5 border-t border-brand-100 px-3 py-2 dark:border-brand-900">
+            <Button size="sm" variant="primary" onClick={copy}>{copied ? <ClipboardCheck className="size-4" /> : <Copy className="size-4" />} Copy</Button>
+            <Button size="sm" variant="secondary" onClick={insert}><ArrowRight className="size-4" /> Insert into document</Button>
+            <Button size="sm" variant="ghost" onClick={run}><RotateCcw className="size-4" /> Retry</Button>
+          </div>
+        </div>
+      )}
+    </PanelShell>
+  );
+}
+
 export const PANELS = [
   { id: 'suggestions', label: 'Review suggestions', icon: BookOpenCheck },
   { id: 'assistant', label: 'AI Assistant', icon: Sparkles },
@@ -562,6 +649,7 @@ export const PANELS = [
   { id: 'detector', label: 'AI Detector', icon: ScanSearch },
   { id: 'plagiarism', label: 'Plagiarism Checker', icon: ShieldCheck },
   { id: 'translate', label: 'Translate', icon: Languages },
+  { id: 'image-prompt', label: 'Image Prompt Formatter', icon: ImageIcon },
 ] as const;
 
 export type PanelId = (typeof PANELS)[number]['id'];

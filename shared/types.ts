@@ -306,6 +306,15 @@ export interface DayStats {
   wordsChecked: number;
 }
 
+/** Which image model's prompting conventions to format for. */
+export type ImagePromptTarget = 'flux2' | 'flux3';
+
+export interface ImagePromptResult {
+  prompt: string;
+  model: string;
+  ms: number;
+}
+
 export interface InsightsResponse {
   days: { date: string; stats: DayStats }[];
   totals: { docs: number; words: number; accepted: number };

@@ -27,7 +27,7 @@ import { SuggestionPopover, SuggestionsPanel, SynonymPopover, type SuggestionAct
 import { GoalsModal, PerformanceModal } from './Dialogs';
 import { FormatToolbar } from './Toolbar';
 import { copyRich, exportDocx, exportHtml, exportMarkdown, exportText } from './editorUtils';
-import { AssistantPanel, CitationsPanel, DetectorPanel, GraderPanel, PANELS, PlagiarismPanel, ReaderPanel, RewritePanel, type PanelId } from './panels/AgentPanels';
+import { AssistantPanel, CitationsPanel, DetectorPanel, GraderPanel, ImagePromptPanel, PANELS, PlagiarismPanel, ReaderPanel, RewritePanel, type PanelId } from './panels/AgentPanels';
 
 export function EditorPage({ id, health }: { id: string; health: HealthResponse | null }) {
   const settings = useSettings((s) => s.settings);
@@ -670,6 +670,7 @@ function DocumentEditor({ initial, settings, health }: { initial: Doc; settings:
             {panel === 'citations' && <CitationsPanel ctx={ctx} searchConfigured={!!health?.searchConfigured} packaged={!!health?.packaged} />}
             {panel === 'detector' && <DetectorPanel ctx={ctx} onHumanize={() => setPanel('humanize')} />}
             {panel === 'plagiarism' && <PlagiarismPanel ctx={ctx} searchConfigured={!!health?.searchConfigured} packaged={!!health?.packaged} />}
+            {panel === 'image-prompt' && <ImagePromptPanel ctx={ctx} />}
           </aside>
         )}
 

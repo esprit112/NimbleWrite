@@ -188,6 +188,35 @@ Respond with ONLY JSON:
 At most 8 claims, most important first. No claims -> {"claims":[]}`;
 }
 
+const FLUX2_GUIDE = `Write the prompt as a flexible, keyword-friendly description — the classic Stable Diffusion-style "physics-first" approach. Order is forgiving, so lead with whatever matters most, but cover:
+- Medium and style keywords (e.g. "stylised neon-illustration artwork", "cinematic photograph", "flat vector poster").
+- Lighting as physical facts: colour temperature in Kelvin (e.g. "cool 6500K rim light", "warm 3200K fill"), direction ("grazing in from frame-left"), hardness ("hard-edged shadows" vs "soft diffused glow").
+- Camera/lens language where relevant: angle (overhead, eye-level, low-angle), lens character (wide-angle, telephoto compression, shallow depth of field), film stock or renderer cues.
+- Subject detail, composition and palette, each as short descriptive phrases or clauses — comma-separated keyword stacking is fine.
+- Negative/avoid cues can be stated plainly ("no text, no logos, no watermark").
+Natural language prose or comma-separated phrases are both fine; this model is forgiving of either.`;
+
+const FLUX3_GUIDE = `Write the prompt as natural-language prose in BFL's FLUX.3 caption grammar — this model was trained on captions shaped exactly like this, and a flat keyword list gives generic, off-brand results. Follow this structure strictly:
+1. Open with the medium + style declaration as the first sentence (e.g. "Stylised neon-illustration artwork with fine film grain...").
+2. Next describe the scene, then the lighting, then the camera — all BEFORE any subject detail.
+3. Only then describe subjects, each anchored to a position in the frame ("Centred in the middle of the frame...", "In the far background...", "To the lower right..."). The layout must be reconstructable from the words alone.
+4. For repeated elements up to about 10, state the exact count and arrangement explicitly (e.g. "exactly seven small silhouettes, one every roughly 51 degrees of arc"), never a vague plural like "a ring of children".
+5. No hedging, no mood or quality adjectives (never "beautiful", "epic", "stunning"), and no closing sentence about atmosphere or feeling.
+6. State exclusions as present facts, not instructions: "The scene contains no legible text, letters, logos or watermarks anywhere in the frame" — not "no text".
+7. Aim for roughly 100-350 words of flowing prose, not a keyword list.`;
+
+export function imagePromptSystemPrompt(target: 'flux2' | 'flux3', enhance: boolean): string {
+  const guide = target === 'flux2' ? FLUX2_GUIDE : FLUX3_GUIDE;
+  const task = enhance
+    ? "The writer has given you a rough idea for an image. Expand it into a complete, vivid prompt: invent concrete, well-judged specifics for anything they left vague or unstated (lighting setup, camera, palette, texture, composition, mood-appropriate details) while staying faithful to what they described and never contradicting it."
+    : 'The writer has already described what they want in their own words. Restructure and rephrase ONLY what they gave you into the required format below. Do not invent new creative content, subjects, colours or details beyond minor connective phrasing needed to meet the format.';
+  return `You are a prompt formatter for AI image generation. ${task}
+
+${guide}
+
+Output ONLY the finished prompt text: no preamble, no explanation, no markdown formatting, no quotation marks around it, and never multiple alternative versions.`;
+}
+
 export function aiDetectPrompt(): string {
   return `You estimate whether passages read as AI-generated or human-written.
 Signs of AI text: very even sentence length and rhythm; inflated or generic words (delve, pivotal, tapestry, testament, landscape, crucial, showcase, foster, seamless, vibrant); formulaic transitions (Moreover, Furthermore, Additionally, In conclusion); lists of three; "not only... but also"; neutral, hedged tone; tidy structure with no personal detail.

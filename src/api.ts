@@ -1,7 +1,7 @@
 // Typed client for the NimbleWrite API (all AI calls go through the server; the key never reaches the browser).
 import type {
   AiDetectResult, CheckOptions, CheckParagraph, CheckResponse, CitationMeta, ClaimToCite, Doc, DocSummary, FormattedCitation,
-  GraderResult, HealthResponse, InsightsResponse, PlagiarismResult, ReaderReactions, Settings, SynonymSense, ToneResult, TuneResult, WriteRequest,
+  GraderResult, HealthResponse, ImagePromptResult, ImagePromptTarget, InsightsResponse, PlagiarismResult, ReaderReactions, Settings, SynonymSense, ToneResult, TuneResult, WriteRequest,
 } from '../shared/types';
 
 export class ApiError extends Error {
@@ -73,6 +73,8 @@ export const api = {
   citationLookup: (input: string) => post<{ meta: CitationMeta; formatted: FormattedCitation[] }>('/citation/lookup', { input }),
   citationFormat: (meta: CitationMeta) => post<{ formatted: FormattedCitation[] }>('/citation/format', meta),
   citationSearch: (query: string) => post<{ configured: boolean; hits: { title: string; url: string; snippet: string }[] }>('/citation/search', { query }),
+  imagePrompt: (idea: string, target: ImagePromptTarget, enhance: boolean) =>
+    post<ImagePromptResult>('/ai/image-prompt', { idea: idea.slice(0, 4000), target, enhance }),
   accepted: (category: string, n = 1) => post<void>('/stats/accepted', { category, n }).catch(() => undefined),
   insights: () => req<InsightsResponse>('/insights'),
 };
