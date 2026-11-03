@@ -307,7 +307,8 @@ export interface DayStats {
 }
 
 /** Which image model's prompting conventions to format for. */
-export type ImagePromptTarget = 'flux2' | 'flux3';
+export const IMAGE_PROMPT_TARGETS = ['flux2-klein', 'flux3-klein', 'zimage-turbo', 'flux2', 'flux3'] as const;
+export type ImagePromptTarget = (typeof IMAGE_PROMPT_TARGETS)[number];
 
 export interface ImagePromptResult {
   prompt: string;

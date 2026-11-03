@@ -2,14 +2,14 @@
 import { Router, type Request, type Response } from 'express';
 import { z } from 'zod';
 import type { AiDetectResult, AssistResponse, CheckOptions, CheckParagraph, CheckResponse, ClaimToCite, GraderResult, ImagePromptResult, Issue, ReaderReactions, SynonymSense, ToneResult, TuneResult } from '../../shared/types';
-import { CATEGORIES } from '../../shared/types';
+import { CATEGORIES, IMAGE_PROMPT_TARGETS } from '../../shared/types';
 import { TONES } from '../../shared/meta';
 import { countWords, sentences } from '../../shared/text';
 import { chat, chatJson, chatStream, NimError } from '../nim';
 import { config } from '../config';
 import { parseLooseJson, salvageObjects } from '../json';
 import { placeFindings, type RawFinding } from '../locate';
-import { aiDetectPrompt, checkSystemPrompt, claimsPrompt, graderPrompt, imagePromptSystemPrompt, readerReactionsPrompt, synonymsSystemPrompt, toneSystemPrompt, writeMessages } from '../prompts';
+import { aiDetectPrompt, checkSystemPrompt, claimsPrompt, cleanImagePrompt, graderPrompt, imagePromptParams, imagePromptSystemPrompt, readerReactionsPrompt, synonymsSystemPrompt, toneSystemPrompt, writeMessages } from '../prompts';
 import { getSettings, recordCheck } from '../store';
 import { heuristicSignals } from '../detect';
 import { assistFingerprint, mergeAssistIssues } from '../assist';
@@ -437,7 +437,7 @@ aiRouter.post('/agents/detect', async (req, res) => {
 
 const ImagePromptBody = z.object({
   idea: z.string().min(1).max(4000),
-  target: z.enum(['flux2', 'flux3']),
+  target: z.enum(IMAGE_PROMPT_TARGETS),
   enhance: z.boolean().default(true),
 });
 
@@ -447,15 +447,14 @@ aiRouter.post('/image-prompt', async (req: Request, res: Response) => {
   const model = settings.models.write;
   const { text, ms } = await chat({
     model,
-    temperature: enhance ? 0.7 : 0.2,
-    maxTokens: 900,
+    ...imagePromptParams(target, enhance),
     timeoutMs: 60_000,
     messages: [
       { role: 'system', content: imagePromptSystemPrompt(target, enhance) },
       { role: 'user', content: idea },
     ],
   });
-  const result: ImagePromptResult = { prompt: text.trim().replace(/^["']|["']$/g, ''), model, ms };
+  const result: ImagePromptResult = { prompt: cleanImagePrompt(text), model, ms };
   res.json(result);
 });
 

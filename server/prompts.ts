@@ -1,5 +1,5 @@
 // Prompt builders for every AI feature. Kept in one place so behaviour is easy to tune.
-import type { CheckOptions, Dialect, Goals, ParaphraseMode, WriteRequest } from '../shared/types';
+import type { CheckOptions, Dialect, Goals, ImagePromptTarget, ParaphraseMode, WriteRequest } from '../shared/types';
 import { ISSUE_TYPES, TONES } from '../shared/meta';
 
 export const DIALECT_NAME: Record<Dialect, string> = {
@@ -205,16 +205,86 @@ const FLUX3_GUIDE = `Write the prompt as natural-language prose in BFL's FLUX.3 
 6. State exclusions as present facts, not instructions: "The scene contains no legible text, letters, logos or watermarks anywhere in the frame" — not "no text".
 7. Aim for roughly 100-350 words of flowing prose, not a keyword list.`;
 
-export function imagePromptSystemPrompt(target: 'flux2' | 'flux3', enhance: boolean): string {
-  const guide = target === 'flux2' ? FLUX2_GUIDE : FLUX3_GUIDE;
+const FLUX2_KLEIN_GUIDE = `Target model: FLUX.2 [klein] (distilled, 4 steps). It reads the prompt through a Qwen3 chat-style text encoder, has no prompt upsampler, no negative prompt and ignores emphasis syntax, so what is written is exactly what it gets. Write natural-language prose, like a novelist describing a scene, never a keyword list. Follow these rules:
+1. Structure: Subject, then Setting, then Details, then Lighting, then Atmosphere. The model pays most attention to what comes first, so the opening sentence carries the main subject and its key action; context and secondary details come last.
+2. Use full sentences in which each thing owns its attributes ("She is wearing a black dress. The ocean is behind her.") and state spatial relations (behind, to her left, in the foreground). Never stack loose tags.
+3. Lighting is the single most important element. Always state the source, the quality (soft, hard, diffused), the direction (camera-left, from behind, overhead), the colour temperature (warm golden, cool blue, or Kelvin) and how it interacts with surfaces (catches, filters through, reflects off).
+4. Specifics beat adjectives: materials, textures, clothing, counts. Describe only what can be seen (no smells, sounds or feelings). Use camera, lens or film-stock language only when the image is meant to be a photograph (for example "shot on 35mm film, Kodak Portra 400, shallow depth of field").
+5. Colours: use plain colour names. Use a hex code only when the writer supplied one or named an exact brand colour, and then tie it to a specific object ("the logo text is colour #FF5733"), never a loose "use #FF0000 somewhere". Do not invent hex codes.
+6. Text in the image: put the exact words in double quotes and give placement, lettering style and colour.
+7. With several people, anchor each one to a place in the frame and give each their own clothing and hair next to that position. Keep faces large (medium or close framing) and say where each person is looking. Put "subtle" before an expression to avoid exaggeration.
+8. State what should be absent as what is present ("an empty street", "sharp focus throughout"). Never write a negative-prompt list, quality tags (masterpiece, 8k, ultra detailed) or weighting syntax such as (word:1.4); none of them work on this model.
+9. Length: 30-80 words for a simple image, up to about 300 words for a complex scene. Every sentence must add visual information.
+10. Finish with one short annotation line, for example "Style: stylised neon illustration. Mood: calm, ritual, hypnotic."`;
+
+const FLUX3_KLEIN_GUIDE = `Target model: FLUX.3 Image Klein (distilled). This model was trained on full scene captions written by Black Forest Labs' own prompt upsampler and gives generic output for anything shaped differently, so you are acting as that upsampler: write exactly one caption in its grammar. Follow these rules:
+1. One continuous prose block in the generative voice. Never write "this image shows", "we can see" or "is visible". No headings, lists, markdown, JSON, coordinates, ids or angle-bracket tokens.
+2. The first sentence declares the medium and style. If the writer states a style (illustration, diorama, neon graphic, oil painting) keep it and open with it. If they state none, plan an actual photograph and open with a medium convention such as "Full-color outdoor photograph, ...", "Full-color indoor photograph, ...", "Studio photograph, ..." or "Close-up photograph, ...". Keep the word "Photorealistic" for renders.
+3. Then the scene, the lighting and the camera, all BEFORE any subject detail. Describe light as something that happens in the scene: source, direction, quality and colour. Add camera optics (depth of field, bokeh, lens) only if asked for or implied.
+4. Then the subjects, each with concrete colours, materials and state, never vague adjectives. Every person in focus gets an observable profile: ethnicity, gender, age range, skin tone, hair and clothing.
+5. Make the layout reconstructable from the words alone: frame-relative positions (frame-left, frame-right, upper, lower, foreground, midground, background), sentence-initial anchors ("On the left, ...", "In the background, ..."), relations (holds, faces, behind) and a consistent order.
+6. Describe up to about ten repeated instances one by one with the exact count and arrangement. Beyond ten, give the exact count and a collective description instead.
+7. Out-of-focus or distant things are shapes, colours and silhouettes, never identities or readable text. The background takes about one sixth of the caption.
+8. Be definite: no hedging adverbs, no quality or emotion judgements (beautiful, stunning, iconic, masterpiece), no closing sentence about mood. Turn moods into observable physical facts.
+9. There is no negative prompt. State exclusions as present facts ("The scene contains no legible text, letters, numerals, logos or watermarks"). Where a surface would normally carry a label, say it is plain and unlabeled; otherwise the model invents lettering.
+10. Any text to be rendered: transcribe each wording verbatim inside double quotes, write line breaks as \\n, and give its typography (weight, case, colour, placement). Exact colours may be given as hex codes.
+11. Do not invent names, brands, logos or celebrities; keep any the writer names.
+12. English prose, typically 100-350 words, more for a complex scene.`;
+
+const ZIMAGE_TURBO_GUIDE = `Target model: Z-Image Turbo (8-step distilled, Qwen3-4B text encoder). It has no negative prompt (guidance is off), follows long concrete instructions very literally and does not infer unstated intent, so everything that should or should not appear must be in this one positive prompt. Follow these rules:
+1. Write flowing natural-language sentences, never a tag list. Never use quality meta-tags such as "8K", "masterpiece", "best quality", "highly detailed" or "trending on artstation".
+2. Cover, in this order and as prose: the subject (age, appearance, expression, action, posture); the scene (place, time, three to five concrete background elements, atmosphere); the composition (shot type, camera angle, gaze direction, candid or posed); the lighting (type, direction, softness, colour); the style (photograph or illustration, lens or film stock, colour palette); then constraints.
+3. Be objective and concrete. Describe materials, textures and spatial layering ("fabric weave", "fine skin texture with visible pores", "wet asphalt reflecting the signs"). No metaphor, no emotive rhetoric, no vague words such as "beautiful" or "nice".
+4. Put the most important items first: the subject, then any text that must appear.
+5. Any text that must appear: copy it verbatim inside double quotes and say which surface carries it, where, how large and in what lettering or material (for example: a neon sign above the door reads "OPEN" in glowing cyan sans-serif capitals). Keep each piece of text in a single language (English and Chinese both render well). For a poster, menu or interface, describe every piece of text, its font and the layout.
+6. Express exclusions positively where possible ("sharp focus", "plain uncluttered background") and otherwise as short plain clauses at the very end ("no logos, no watermark"). Never output a separate negative prompt.
+7. Pick one style and do not contradict yourself (no "photorealistic anime"). State an age range for any person.
+8. If the idea is a question or a design task rather than a scene (for example "a diagram showing how a kettle works"), first decide one concrete, visualisable answer, then describe that image.
+9. Length: roughly 80-250 words and never more than 250. A simple idea may be shorter but should never be a bare phrase. The model gives low variety between seeds, so commit to specific, definite choices.`;
+
+const IMAGE_GUIDES: Record<ImagePromptTarget, string> = {
+  'flux2-klein': FLUX2_KLEIN_GUIDE,
+  'flux3-klein': FLUX3_KLEIN_GUIDE,
+  'zimage-turbo': ZIMAGE_TURBO_GUIDE,
+  flux2: FLUX2_GUIDE,
+  flux3: FLUX3_GUIDE,
+};
+
+export function imagePromptSystemPrompt(target: ImagePromptTarget, enhance: boolean): string {
+  const guide = IMAGE_GUIDES[target];
   const task = enhance
     ? "The writer has given you a rough idea for an image. Expand it into a complete, vivid prompt: invent concrete, well-judged specifics for anything they left vague or unstated (lighting setup, camera, palette, texture, composition, mood-appropriate details) while staying faithful to what they described and never contradicting it."
-    : 'The writer has already described what they want in their own words. Restructure and rephrase ONLY what they gave you into the required format below. Do not invent new creative content, subjects, colours or details beyond minor connective phrasing needed to meet the format.';
+    : 'The writer has already described what they want in their own words. Restructure and rephrase ONLY what they gave you into the required format below. Do not invent new creative content, subjects, colours or details beyond minor connective phrasing needed to meet the format. If the format asks for something the writer did not give (for example lighting or camera), leave it out rather than inventing it. Keep any wording they want rendered as text in the image exactly as written.';
+  const strictReminder = enhance
+    ? ''
+    : '\n\nReminder: you are only reformatting. The rules above describe the FORMAT, not content to add. Every concrete detail in your output must come from the writer\'s idea; skip any element above for which the writer gave nothing, and let the length follow their idea rather than the word counts suggested above.';
   return `You are a prompt formatter for AI image generation. ${task}
 
-${guide}
+${guide}${strictReminder}
 
 Output ONLY the finished prompt text: no preamble, no explanation, no markdown formatting, no quotation marks around it, and never multiple alternative versions.`;
+}
+
+/** Sampling limits per target: FLUX.3 captions run longest, so they get the most room. */
+export function imagePromptParams(target: ImagePromptTarget, enhance: boolean): { temperature: number; maxTokens: number } {
+  return { temperature: enhance ? 0.7 : 0.2, maxTokens: target === 'flux3-klein' || target === 'flux3' ? 1200 : 900 };
+}
+
+/**
+ * Tidy the model's reply. Wrapping quotes and code fences are removed, but a quote that closes
+ * embedded image text (for example a sign that reads "OPEN") must survive, so quotes are only
+ * stripped when they wrap the whole reply and nothing of the same kind appears inside.
+ */
+export function cleanImagePrompt(raw: string): string {
+  let s = raw.trim().replace(/^```[a-z]*\s*\n?/i, '').replace(/\n?```\s*$/, '').trim();
+  const pairs: [string, string][] = [['"', '"'], ["'", "'"], ['\u201c', '\u201d']];
+  for (const [open, close] of pairs) {
+    if (s.length > 1 && s.startsWith(open) && s.endsWith(close) && !s.slice(1, -1).includes(open) && !s.slice(1, -1).includes(close)) {
+      s = s.slice(1, -1).trim();
+      break;
+    }
+  }
+  return s;
 }
 
 export function aiDetectPrompt(): string {

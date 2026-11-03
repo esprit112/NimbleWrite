@@ -552,13 +552,16 @@ export function PlagiarismPanel({ ctx, searchConfigured, packaged = false }: { c
 }
 
 const IMAGE_TARGETS: { id: ImagePromptTarget; label: string; hint: string }[] = [
-  { id: 'flux3', label: 'FLUX.3', hint: 'Caption-grammar prose: style first, then scene/lighting/camera, then subjects anchored to frame position' },
-  { id: 'flux2', label: 'FLUX.2', hint: 'Flexible keyword/physics-first style: medium, Kelvin lighting, camera, subject, palette' },
+  { id: 'flux3-klein', label: 'FLUX.3 Klein', hint: "Distilled Klein: one caption in BFL's upsampler grammar (medium first, then scene/light/camera, then subjects anchored to frame position, exact counts, quoted text)" },
+  { id: 'flux2-klein', label: 'FLUX.2 Klein', hint: 'Distilled Klein: subject-first prose, lighting described as source/quality/direction/temperature, hex colours, no negative prompt' },
+  { id: 'zimage-turbo', label: 'Z-Image Turbo', hint: 'Long concrete prose with every constraint in the positive prompt, quoted on-image text, no quality tags or negatives' },
+  { id: 'flux3', label: 'FLUX.3 (generic)', hint: 'Caption-grammar prose: style first, then scene/lighting/camera, then subjects anchored to frame position' },
+  { id: 'flux2', label: 'FLUX.2 (generic)', hint: 'Flexible keyword/physics-first style: medium, Kelvin lighting, camera, subject, palette' },
 ];
 
 export function ImagePromptPanel({ ctx }: { ctx: PanelContext }) {
   const [idea, setIdea] = useState('');
-  const [target, setTarget] = useState<ImagePromptTarget>('flux3');
+  const [target, setTarget] = useState<ImagePromptTarget>('flux3-klein');
   const [enhance, setEnhance] = useState(true);
   const [copied, setCopied] = useState(false);
   const state = useAsync<ImagePromptResult>();
@@ -586,7 +589,7 @@ export function ImagePromptPanel({ ctx }: { ctx: PanelContext }) {
   };
 
   return (
-    <PanelShell icon={<ImageIcon className="size-4" />} title="Image Prompt Formatter" subtitle="Turn a rough idea into a correctly-formatted FLUX.2 or FLUX.3 image prompt.">
+    <PanelShell icon={<ImageIcon className="size-4" />} title="Image Prompt Formatter" subtitle="Turn a rough idea into a correctly-formatted prompt for FLUX.2 Klein, FLUX.3 Klein or Z-Image Turbo.">
       <div>
         <div className="mb-1.5 text-xs font-medium text-slate-500 dark:text-slate-400">Target model</div>
         <div className="flex flex-wrap gap-1.5">
