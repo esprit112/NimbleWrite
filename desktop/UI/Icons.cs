@@ -19,6 +19,10 @@ internal static class Icons
     public const string Grader = "\uE7BE"; // Education
     public const string Detector = "\uE721"; // Search
     public const string Synonyms = "\uE82D"; // Dictionary
+    public const string Citations = "\uE8F1"; // Library
+    public const string Plagiarism = "\uEA18"; // Shield
+    public const string ImagePrompt = "\uE91B"; // Photo
+    public const string Documents = "\uE8A5"; // Document
     public const string Performance = "\uE9D9"; // Diagnostic
     public const string Settings = "\uE713"; // Setting
     public const string Close = "\uE711"; // Cancel

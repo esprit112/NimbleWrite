@@ -17,6 +17,11 @@ internal sealed class ReviewTab : PanelTab
     StackPanel list = null!;
     ScrollViewer listScroll = null!;
     string listKey = "\0";
+    StackPanel tuneBox = null!;
+    TextBlock tuneToggle = null!;
+    InputBox tuneInput = null!;
+    AgentRunner tuneRunner = null!;
+    StackPanel tuneResult = null!;
 
     public ReviewTab(IPanelActions host) : base(host)
     {
@@ -47,8 +52,99 @@ internal sealed class ReviewTab : PanelTab
         listScroll = new ScrollViewer { Content = list, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Focusable = false, Padding = new Thickness(0, 0, 4, 0) };
         Grid.SetRow(listScroll, 2);
         grid.Children.Add(listScroll);
+        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        var tune = BuildTune();
+        Grid.SetRow(tune, 3);
+        grid.Children.Add(tune);
         return grid;
     }
+
+    // ---- Tune: change how suggestions are made, in plain words ----
+
+    FrameworkElement BuildTune()
+    {
+        var outer = new StackPanel { Margin = new Thickness(0, 6, 0, 0) };
+        outer.Children.Add(new Border { Height = 1, Background = Theme.Line, Margin = new Thickness(0, 0, 0, 4) });
+        var toggle = UiKit.Button("Tune suggestions…", ToggleTune, Kind.Ghost, "Tell NimbleWrite how to check your writing");
+        tuneToggle = (TextBlock)toggle.Child;
+        toggle.HorizontalAlignment = HorizontalAlignment.Left;
+        outer.Children.Add(toggle);
+        tuneBox = new StackPanel { Visibility = Visibility.Collapsed };
+        tuneBox.Children.Add(Hint("Say what to change, e.g. \u201Cstop flagging passive voice\u201D or \u201Cthe word Nemotron is spelled right\u201D. Nothing changes until you apply it.", 6));
+        tuneInput = new InputBox("How should NimbleWrite check your writing?", 800, placeholder: "Tell NimbleWrite what to change") { Margin = new Thickness(0, 0, 0, 6) };
+        tuneInput.Submitted += AskTune;
+        tuneBox.Children.Add(tuneInput);
+        var ask = UiKit.Button("Ask", AskTune, Kind.Secondary);
+        ask.HorizontalAlignment = HorizontalAlignment.Left;
+        tuneBox.Children.Add(ask);
+        tuneRunner = new AgentRunner(Host);
+        tuneBox.Children.Add(tuneRunner);
+        tuneResult = new StackPanel();
+        tuneBox.Children.Add(tuneResult);
+        outer.Children.Add(new ScrollViewer { Content = tuneBox, MaxHeight = 240, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Focusable = false });
+        return outer;
+    }
+
+    void ToggleTune()
+    {
+        bool open = tuneBox.Visibility != Visibility.Visible;
+        tuneBox.Visibility = open ? Visibility.Visible : Visibility.Collapsed;
+        tuneToggle.Text = open ? "Hide tuning" : "Tune suggestions…";
+    }
+
+    void AskTune()
+    {
+        string message = tuneInput.Text.Trim();
+        if (message.Length == 0)
+        {
+            Host.Notice("Type what you'd like to change first.");
+            return;
+        }
+        tuneResult.Children.Clear();
+        _ = tuneRunner.Run("Thinking about your settings…", ct => Host.Api.TuneAsync(message, ct), ShowTune, "Here's what would change.");
+    }
+
+    internal void ShowTune(TuneResult r)
+    {
+        _ = View;
+        if (tuneBox.Visibility != Visibility.Visible) ToggleTune();
+        tuneResult.Children.Clear();
+        if (r.Reply.Length > 0) tuneResult.Children.Add(UiKit.Label(r.Reply, 12.5, null, Theme.Text, wrap: true));
+        if (r.Changes.Count == 0) return;
+        var changes = new StackPanel { Margin = new Thickness(0, 6, 0, 6) };
+        foreach (var c in r.Changes) changes.Children.Add(UiKit.Label($"• {Describe(c)}", 12, null, Theme.Text, wrap: true));
+        tuneResult.Children.Add(Widgets.Card(changes, Theme.Line, Theme.Raised, 6));
+        var actions = new StackPanel { Orientation = Orientation.Horizontal };
+        actions.Children.Add(UiKit.Spaced(UiKit.Button(r.Changes.Count == 1 ? "Apply this change" : $"Apply {r.Changes.Count} changes", () => ApplyTune(r.Changes), Kind.Primary)));
+        actions.Children.Add(UiKit.Spaced(UiKit.Button("Discard", () =>
+        {
+            tuneResult.Children.Clear();
+            tuneRunner.Reset();
+        }, Kind.Ghost)));
+        tuneResult.Children.Add(actions);
+    }
+
+    void ApplyTune(List<TuneChange> changes)
+    {
+        _ = tuneRunner.Run("Applying…", ct => Host.Api.ApplyTuneAsync(changes, ct), r =>
+        {
+            tuneResult.Children.Clear();
+            tuneInput.Text = "";
+            Host.Notice(r.Applied == 1 ? "Applied 1 change. Checking again…" : $"Applied {r.Applied} changes. Checking again…");
+            Host.Recheck();
+        }, "Applied. These settings are shared with the editor.");
+    }
+
+    /// <summary>One proposed settings change, in plain words.</summary>
+    internal static string Describe(TuneChange c) => c.Kind switch
+    {
+        "mute" => $"Stop flagging: {c.Title ?? c.Type}",
+        "unmute" => $"Flag again: {c.Title ?? c.Type}",
+        "dictionary" => $"Add to dictionary: {c.Word}",
+        "style_rule" => $"Style rule: {c.Find} → {c.Replace}",
+        "instruction" => $"Remember: {c.Text}",
+        _ => c.Kind,
+    };
 
     public override void OnShown(EngineSnapshot? s)
     {

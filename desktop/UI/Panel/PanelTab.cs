@@ -58,6 +58,14 @@ internal abstract class PanelTab
 
     // ---- helpers for tab views ----
 
+    /// <summary>Run <paramref name="a"/> on the tab's UI thread (after an await that may have resumed elsewhere).</summary>
+    protected void OnUi(Action a)
+    {
+        var d = View.Dispatcher;
+        if (d.CheckAccess()) a();
+        else d.BeginInvoke(a);
+    }
+
     protected static TextBlock Heading(string text, double top = 0)
     {
         var t = UiKit.Label(text, 13, FontWeights.SemiBold);

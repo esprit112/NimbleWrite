@@ -110,7 +110,7 @@ public sealed class PanelTests
     public void TabsFollowTheWebEditorsOrderAndAreUnique() => OnSta(() =>
     {
         var ids = PanelWindow.CreateTabs(new FakeHost()).Select(t => t.Id).ToList();
-        Assert.Equal(new[] { "review", "assistant", "paraphrase", "humanize", "reader", "grader", "detector", "translate", "synonyms", "performance" }, ids);
+        Assert.Equal(new[] { "review", "assistant", "paraphrase", "humanize", "reader", "grader", "citations", "detector", "plagiarism", "translate", "image-prompt", "synonyms", "performance", "documents" }, ids);
         Assert.Equal(ids.Count, ids.Distinct().Count());
     });
 
@@ -292,6 +292,64 @@ public sealed class PanelTests
                         new() { Text = "Schools should teach screen time.", Score = 22, Reasons = { } },
                     },
                 }, scope);
+                return true;
+            case CitationsTab cite:
+                cite.ShowCitation(new CitationLookupResult
+                {
+                    Formatted =
+                    {
+                        new() { Style = "apa", Text = "LeCun, Y., Bengio, Y., & Hinton, G. (2015). Deep learning. Nature, 521(7553), 436–444. https://doi.org/10.1038/nature14539" },
+                        new() { Style = "harvard", Text = "LeCun, Y., Bengio, Y. and Hinton, G. (2015) 'Deep learning', Nature, 521(7553), pp. 436–444. doi:10.1038/nature14539." },
+                    },
+                });
+                cite.ShowClaims(new List<ClaimToCite>
+                {
+                    new() { Claim = "70% of teenagers check their phones within five minutes of waking up", Reason = "A specific statistic needs a source.", Query = "teenagers phone check waking survey", Strength = "needs_citation" },
+                    new() { Claim = "it also increases anxiety", Reason = "A causal health claim.", Query = "social media anxiety adolescents", Strength = "recommended" },
+                }, scope);
+                return true;
+            case PlagiarismTab plag:
+                plag.Show(new PlagiarismResult
+                {
+                    Overall = 18,
+                    CheckedSources = 4,
+                    WebSearch = "not_configured",
+                    Sources =
+                    {
+                        new() { Title = "Essay draft (March) with a long title that goes on and on", Kind = "doc", Similarity = 34, Passages = { new() { Text = "Schools should therefore teach students how to manage screen time." } } },
+                        new() { Title = "Pasted source", Kind = "pasted", Similarity = 6, Url = "https://example.org/a/very/long/path/to/an/article-about-screen-time-and-schools", Passages = { new() { Text = "manage screen time" } } },
+                    },
+                }, scope);
+                return true;
+            case ImagePromptTab img:
+                img.Show(new ImagePromptResult { Prompt = "Photograph, golden hour. A red fox stands in fresh snow at the left third of the frame, breath visible, backlit by low sun; pine forest softly out of focus behind.", Model = "m", Ms = 3200 }, new TextScope(0, 20, "a fox in snow at dawn", "a fox in snow at dawn", true));
+                return true;
+            case PerformanceTab perf:
+                perf.ShowStats(new TextStatsResponse
+                {
+                    Stats = new TextStats { Words = 1234, Characters = 7100, CharactersNoSpaces = 5900, Sentences = 61, Paragraphs = 9, ReadingTimeSec = 296, SpeakingTimeSec = 494, AvgSentenceLength = 20.2, AvgWordLength = 4.8, Readability = 58, GradeLevel = 10, UniqueWordsPct = 47, RareWordsPct = 12, LongSentences = 4 },
+                    Readability = new ReadabilityLabel { Label = "Fairly difficult", Audience = "15–17 year olds" },
+                    Score = 86,
+                }, scope);
+                perf.ShowInsights(new InsightsResponse
+                {
+                    Days = Enumerable.Range(0, 7).Select(i => new InsightsDay { Date = $"2026-11-0{i + 1}", Stats = new DayStats { WordsChecked = new[] { 0, 1200, 300, 4100, 900, 0, 2500 }[i], Accepted = { ["correctness"] = i } } }).ToList(),
+                    Totals = new InsightsTotals { Docs = 12, Words = 40000, Accepted = 21 },
+                });
+                return true;
+            case ReviewTab review:
+                review.ShowTune(new TuneResult
+                {
+                    Reply = "Sure. I'll stop flagging passive voice and accept Nemotron as a word.",
+                    Changes = { new() { Kind = "mute", Type = "passive_voice", Title = "Passive voice" }, new() { Kind = "dictionary", Word = "Nemotron" } },
+                });
+                return true;
+            case DocumentsTab docs:
+                docs.Show(new List<DocSummary>
+                {
+                    new() { Id = "a", Title = "Cover letter for the data analyst role at a company with a long name", Snippet = "Dear hiring manager, I am writing to apply for the data analyst position advertised on your careers page last week…", WordCount = 412, UpdatedAt = DateTimeOffset.Now.AddHours(-3).ToUnixTimeMilliseconds() },
+                    new() { Id = "b", Title = "Notes", Snippet = "", WordCount = 18, UpdatedAt = DateTimeOffset.Now.AddDays(-20).ToUnixTimeMilliseconds() },
+                });
                 return true;
             default:
                 return false;

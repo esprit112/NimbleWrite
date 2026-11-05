@@ -80,6 +80,30 @@ internal sealed class AgentRunner : StackPanel
         }
     }
 
+    /// <summary>Call the server without reading the text box (a typed idea, the document list…); <paramref name="done"/> is the stamp.</summary>
+    public async Task Run<T>(string working, Func<CancellationToken, Task<T>> call, Action<T> show, string done)
+    {
+        cts?.Cancel();
+        int my = ++seq;
+        var mine = cts = new CancellationTokenSource();
+        SetStatus(working, busy: true);
+        try
+        {
+            var result = await call(mine.Token);
+            if (my != seq) return;
+            show(result);
+            Finish(my, done, error: false);
+        }
+        catch (OperationCanceledException)
+        {
+            if (my == seq) Finish(my, "Stopped.", error: false);
+        }
+        catch (Exception e)
+        {
+            if (my == seq) Finish(my, Describe(e), error: true);
+        }
+    }
+
     /// <summary>A plain message for a failed call.</summary>
     internal static string Describe(Exception e) => e switch
     {

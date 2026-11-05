@@ -130,10 +130,14 @@ internal sealed class PanelWindow : NoActivateWindow
         new RewriteTab(host, RewriteKind.Humanize),
         new ReaderTab(host),
         new GraderTab(host),
+        new CitationsTab(host),
         new DetectorTab(host),
+        new PlagiarismTab(host),
         new RewriteTab(host, RewriteKind.Translate),
+        new ImagePromptTab(host),
         new SynonymsTab(host),
         new PerformanceTab(host),
+        new DocumentsTab(host),
     };
 
     /// <summary>Open the Humanizer on one passage (from the AI Detector) and start it.</summary>
