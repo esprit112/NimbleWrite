@@ -15,6 +15,10 @@ internal static class Icons
     public const string Paraphrase = "\uE8AC"; // Rename
     public const string Humanize = "\uE77B"; // Contact
     public const string Translate = "\uE8C1"; // Characters
+    public const string Reader = "\uE890"; // View
+    public const string Grader = "\uE7BE"; // Education
+    public const string Detector = "\uE721"; // Search
+    public const string Synonyms = "\uE82D"; // Dictionary
     public const string Performance = "\uE9D9"; // Diagnostic
     public const string Settings = "\uE713"; // Setting
     public const string Close = "\uE711"; // Cancel

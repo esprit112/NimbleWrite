@@ -114,6 +114,19 @@ internal sealed class RewriteTab : PanelTab
 
     public override void OnNewField() => result.Discard();
 
+    /// <summary>Run this tool on a given passage (the AI Detector's Humanize), not the current selection.</summary>
+    public void StartOn(TextScope passage)
+    {
+        _ = View;
+        var (request, problem) = BuildRequest(kind, modes?.Selected ?? "standard", voice?.Text ?? "", to?.Selected ?? "French", from?.Selected);
+        if (request == null)
+        {
+            Host.Notice(problem!);
+            return;
+        }
+        result.Start(request, passage);
+    }
+
     // For tests and render checks.
     internal ChipGroup? Modes => modes;
     internal LanguagePicker? To => to;

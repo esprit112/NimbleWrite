@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Threading;
 using NimbleWrite.Desktop.Core;
@@ -27,6 +28,7 @@ internal sealed class UiController : IPanelActions
     DateTime? leftCardAt;
     string? highlight;
     RewriteResult? activeRewrite;
+    ApiClient? api;
 
     public UiController(DesktopConfig config)
     {
@@ -43,10 +45,11 @@ internal sealed class UiController : IPanelActions
         hoverTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(50), DispatcherPriority.Input, (_, _) => OnHover(), dispatcher);
     }
 
-    public void Bind(Engine e, Tray t)
+    public void Bind(Engine e, Tray t, ApiClient client)
     {
         engine = e;
         tray = t;
+        api = client;
         hoverTimer.Start();
     }
 
@@ -202,12 +205,14 @@ internal sealed class UiController : IPanelActions
 
     public string Hotkey => config.Hotkey;
 
-    public void Rewrite(WriteRequest request, RewriteResult sink)
+    public void Rewrite(WriteRequest request, RewriteResult sink, TextScope? on = null)
     {
         // The engine runs one rewrite at a time; starting one stops the last, so tell that tab why it went quiet.
         if (activeRewrite != null && !ReferenceEquals(activeRewrite, sink)) activeRewrite.Interrupted();
         activeRewrite = sink;
-        engine.Rewrite(request, u => dispatcher.InvokeAsync(() => sink.OnUpdate(u)));
+        Action<AiUpdate> update = u => dispatcher.InvokeAsync(() => sink.OnUpdate(u));
+        if (on == null) engine.Rewrite(request, update);
+        else engine.Rewrite(request, on, update);
     }
 
     public void CancelRewrite(RewriteResult sink)
@@ -217,7 +222,35 @@ internal sealed class UiController : IPanelActions
         engine.CancelRewrite();
     }
 
-    public void ApplyRewrite(TextScope scope, string text) => engine.ApplyRewrite(scope, text);
+    public void ApplyRewrite(TextScope scope, string text, string? doneNotice = null) => engine.ApplyRewrite(scope, text, doneNotice);
+
+    public ApiClient Api => api ?? throw new InvalidOperationException("The panel was used before the app finished starting.");
+
+    public string EditorUrl => config.ServerUrl.TrimEnd('/');
+
+    public Task<(TextScope? Scope, string? Problem)> CaptureAsync(int maxChars, string verb)
+    {
+        var done = new TaskCompletionSource<(TextScope?, string?)>();
+        engine.CaptureScope(maxChars, verb, (s, problem) => dispatcher.InvokeAsync(() => done.TrySetResult((s, problem))));
+        return done.Task;
+    }
+
+    public void HumanizePassage(TextScope scope) => panel.Humanize(scope);
+
+    public void Recheck() => engine.Recheck();
+
+    public void OpenUrl(string url)
+    {
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true });
+        }
+        catch (Exception e)
+        {
+            Log.Error("open url", e);
+            panel.ShowNotice("Couldn't open your browser.");
+        }
+    }
 
     public void DetectTone(Action<ToneResult?, string?> done) => engine.DetectTone((t, err) => dispatcher.InvokeAsync(() => done(t, err)));
 
@@ -236,19 +269,7 @@ internal sealed class UiController : IPanelActions
     public void OpenEditor() => engine.OpenInEditor();
 
     /// <summary>The web editor's settings page. (A native Settings window replaces this in a later phase.)</summary>
-    public void OpenWritingSettings()
-    {
-        string url = config.ServerUrl.TrimEnd('/') + "/#/settings";
-        try
-        {
-            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true });
-        }
-        catch (Exception e)
-        {
-            Log.Error("open settings", e);
-            panel.ShowNotice("Couldn't open the settings page.");
-        }
-    }
+    public void OpenWritingSettings() => OpenUrl(EditorUrl + "/#/settings");
 
     public void TabChanged(string id)
     {

@@ -37,7 +37,7 @@ internal abstract class PanelTab
     /// <summary>The view as the panel shows it (inside a scroll viewer unless it scrolls itself).</summary>
     internal FrameworkElement Hosted => hosted ??= ScrollsItself
         ? View
-        : new ScrollViewer { Content = View, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled, Focusable = false };
+        : new ScrollViewer { Content = View, Padding = new Thickness(0, 0, 6, 0), VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled, Focusable = false };
 
     protected abstract FrameworkElement Build();
 

@@ -153,7 +153,7 @@ internal sealed class DesktopApp : Application
             new ClipboardBridge(d),
             diag);
         tray = new Tray(config, engine, api.BaseUrl, Quit, ServerLauncher.Packaged ? ShowKeyWindow : null, () => keys.HasKey, () => hotkey?.Registered == true);
-        ui.Bind(engine, tray);
+        ui.Bind(engine, tray, api);
         hotkey = new HotkeyListener(config.Hotkey, () =>
         {
             engine.ShortcutPressed(); // first, so the engine is ready for the app's reaction to the shortcut's Alt

@@ -128,9 +128,20 @@ internal sealed class PanelWindow : NoActivateWindow
         new AssistantTab(host),
         new RewriteTab(host, RewriteKind.Paraphrase),
         new RewriteTab(host, RewriteKind.Humanize),
+        new ReaderTab(host),
+        new GraderTab(host),
+        new DetectorTab(host),
         new RewriteTab(host, RewriteKind.Translate),
+        new SynonymsTab(host),
         new PerformanceTab(host),
     };
+
+    /// <summary>Open the Humanizer on one passage (from the AI Detector) and start it.</summary>
+    public void Humanize(TextScope passage)
+    {
+        ShowTab("humanize", last);
+        if (Tabs.Active is RewriteTab t) t.StartOn(passage);
+    }
 
     internal TabSet Tabs { get; }
 
@@ -185,13 +196,13 @@ internal sealed class PanelWindow : NoActivateWindow
         var fill = new Border { CornerRadius = new CornerRadius(8) };
         var bar = new Rectangle { Width = 3, Height = 18, RadiusX = 1.5, RadiusY = 1.5, Fill = Theme.Brand, HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(-6, 0, 0, 0) };
         var glyph = UiKit.Glyph(t.Glyph, 17);
-        var face = new Grid { Width = 40, Height = 40 };
+        var face = new Grid { Width = 40, Height = 34 };
         face.Children.Add(fill);
         face.Children.Add(bar);
         face.Children.Add(glyph);
         var b = UiKit.Clickable(face, () => ShowTab(t.Id), Kind.Ghost, t.Label);
         b.Padding = new Thickness(0);
-        b.Margin = new Thickness(0, 0, 0, 4);
+        b.Margin = new Thickness(0, 0, 0, 2); // 14 tools fit the rail without scrolling at the full panel height
         rail[t.Id] = (fill, bar, glyph);
         SetRailState(rail[t.Id], t.Id == Tabs.Active.Id);
         return b;

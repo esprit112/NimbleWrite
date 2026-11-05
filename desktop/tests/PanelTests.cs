@@ -110,7 +110,7 @@ public sealed class PanelTests
     public void TabsFollowTheWebEditorsOrderAndAreUnique() => OnSta(() =>
     {
         var ids = PanelWindow.CreateTabs(new FakeHost()).Select(t => t.Id).ToList();
-        Assert.Equal(new[] { "review", "assistant", "paraphrase", "humanize", "translate", "performance" }, ids);
+        Assert.Equal(new[] { "review", "assistant", "paraphrase", "humanize", "reader", "grader", "detector", "translate", "synonyms", "performance" }, ids);
         Assert.Equal(ids.Count, ids.Distinct().Count());
     });
 
@@ -222,9 +222,9 @@ public sealed class PanelTests
                 to.Filter("");
                 Check(tab.Id, "-all-languages");
             }
+            if (ShowSampleResults(tab)) Check(tab.Id, "-results");
         }
-        Assert.Equal("performance", host.LastTab);
-        Assert.Equal(6, panel.Tabs.All.Count);
+        Assert.Equal(panel.Tabs.All[^1].Id, host.LastTab);
         Theme.Apply(false);
 
         void Check(string id, string state)
@@ -244,6 +244,59 @@ public sealed class PanelTests
     });
 
     // ---- helpers ----
+
+    /// <summary>Fill a tool tab with realistic results (long strings included) so the render check covers them.</summary>
+    static bool ShowSampleResults(PanelTab tab)
+    {
+        const string essay = "Social media has changed how young people communicate. In today's fast-paced digital world, it is crucial to leverage connection. Schools should teach screen time.";
+        var scope = new TextScope(0, essay.Length, essay, essay, true);
+        switch (tab)
+        {
+            case SynonymsTab syn:
+                syn.Show(new List<SynonymSense>
+                {
+                    new() { Meaning = "altered or made different", Synonyms = { "transformed", "reshaped", "altered", "revolutionised", "modified" } },
+                    new() { Meaning = "swapped one thing for another", Synonyms = { "replaced", "switched", "exchanged" } },
+                }, new TextScope(17, 7, "changed", essay, false));
+                return true;
+            case ReaderTab reader:
+                reader.Show(new ReaderReactions
+                {
+                    Overall = "A clear, if brief, argument. A sceptical parent would want evidence for the claims about anxiety and some sense of what 'teach screen time' means in practice.",
+                    Takeaways = { "Social media changed communication", "Schools should act" },
+                    Questions = { "What evidence links social media to anxiety?", "Who teaches this, and in which lessons?" },
+                    Confusions = { new() { Quote = "it is crucial to leverage connection", Issue = "Vague: leverage connection how?", Suggestion = "Say what students should actually do." } },
+                    Suggestions = { "Add one statistic with a source.", "End with a concrete recommendation." },
+                }, scope);
+                return true;
+            case GraderTab grader:
+                grader.Show(new GraderResult
+                {
+                    Grade = "B+",
+                    Score = 78,
+                    Summary = "A focused argument with a clear position; it needs evidence and a stronger conclusion to reach the top band.",
+                    Criteria = { new() { Name = "Argument and position", Score = 82, Feedback = "Clear thesis, consistently held." }, new() { Name = "Use of evidence", Score = 48, Feedback = "One unsourced statistic; cite it and add a counterpoint." } },
+                    Strengths = { "Clear structure" },
+                    Improvements = { "Cite the 70% statistic", "Answer the strongest objection" },
+                }, scope);
+                return true;
+            case DetectorTab detector:
+                detector.Show(new AiDetectResult
+                {
+                    Score = 63,
+                    Verdict = "Mixed: parts read as AI-assisted",
+                    Signals = { new() { Label = "Sentence length variation", Value = "Low (very even rhythm)" }, new() { Label = "Stock phrases", Value = "2 found" } },
+                    Passages =
+                    {
+                        new() { Text = "In today's fast-paced digital world, it is crucial to leverage connection.", Score = 88, Reasons = { "Stock opener", "Abstract verb 'leverage'" } },
+                        new() { Text = "Schools should teach screen time.", Score = 22, Reasons = { } },
+                    },
+                }, scope);
+                return true;
+            default:
+                return false;
+        }
+    }
 
     static TextScope Scope() => new(0, 5, "Hello", "Hello", true);
 
@@ -299,6 +352,13 @@ public sealed class PanelTests
         failure?.Throw();
     }
 
+    /// <summary>Any request fails as if the server were down, so a tab that calls out by mistake shows an error instead of hanging.</summary>
+    sealed class NoServer : System.Net.Http.HttpMessageHandler
+    {
+        protected override System.Threading.Tasks.Task<System.Net.Http.HttpResponseMessage> SendAsync(System.Net.Http.HttpRequestMessage request, CancellationToken ct) =>
+            throw new System.Net.Http.HttpRequestException("No server in tests.");
+    }
+
     internal sealed class FakeHost : IPanelActions
     {
         public System.Collections.Generic.List<string> Recent = new() { "French", "Spanish", "German" };
@@ -309,14 +369,24 @@ public sealed class PanelTests
         public string? LastTab;
 
         public string Hotkey => "Ctrl+Alt+N";
+        public ApiClient Api { get; } = new("http://127.0.0.1:1", new NoServer());
+        public (TextScope? Scope, string? Problem) NextCapture = (null, "Click into a text box first.");
+        public TextScope? Humanized;
+        public string? Opened;
+        public int Rechecks;
+        public string EditorUrl => "http://127.0.0.1:4317";
+        public System.Threading.Tasks.Task<(TextScope? Scope, string? Problem)> CaptureAsync(int maxChars, string verb) => System.Threading.Tasks.Task.FromResult(NextCapture);
+        public void OpenUrl(string url) => Opened = url;
+        public void Recheck() => Rechecks++;
+        public void HumanizePassage(TextScope scope) => Humanized = scope;
         public void Accept(string id, int index) { }
         public void Dismiss(string id) { }
         public void AddWord(string id) { }
         public void AcceptAll(IReadOnlyList<string> ids) { }
         public void SetHighlight(string? id) { }
-        public void Rewrite(WriteRequest request, RewriteResult sink) => LastSink = sink;
+        public void Rewrite(WriteRequest request, RewriteResult sink, TextScope? on = null) => LastSink = sink;
         public void CancelRewrite(RewriteResult sink) { }
-        public void ApplyRewrite(TextScope scope, string text) => Applied = text;
+        public void ApplyRewrite(TextScope scope, string text, string? doneNotice = null) => Applied = text;
         public void DetectTone(Action<ToneResult?, string?> done) { }
         public void Notice(string text) { }
         public void OpenEditor() { }

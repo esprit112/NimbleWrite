@@ -61,7 +61,7 @@ internal sealed class RewriteResult : StackPanel
 
     public bool Running => live && ai is not { Done: true };
 
-    public void Start(WriteRequest request)
+    public void Start(WriteRequest request, TextScope? on = null)
     {
         task = request.Task;
         live = true;
@@ -71,7 +71,7 @@ internal sealed class RewriteResult : StackPanel
         SetStatus("Thinking…");
         box.Visibility = Visibility.Collapsed;
         actions.Visibility = Visibility.Collapsed;
-        host.Rewrite(request, this);
+        host.Rewrite(request, this, on);
     }
 
     public void OnUpdate(AiUpdate u)

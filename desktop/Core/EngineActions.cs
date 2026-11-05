@@ -28,7 +28,19 @@ public sealed partial class Engine
     public void Rewrite(string task, Action<AiUpdate> onUpdate) => Rewrite(new WriteRequest(task, ""), onUpdate);
 
     /// <summary>Stream any write task on the selection (or all the text). The request's Text and Context are filled in here.</summary>
-    public void Rewrite(WriteRequest request, Action<AiUpdate> onUpdate) => Post(() => DoRewrite(request, onUpdate));
+    public void Rewrite(WriteRequest request, Action<AiUpdate> onUpdate) => Post(() => DoRewrite(request, null, onUpdate));
+
+    /// <summary>
+    /// Stream a write task on a passage found earlier (say, one the AI Detector flagged). Only runs if the field still
+    /// holds exactly the text the passage was found in, so it can never rewrite the wrong words.
+    /// </summary>
+    public void Rewrite(WriteRequest request, TextScope on, Action<AiUpdate> onUpdate) => Post(() => DoRewrite(request, on, onUpdate));
+
+    /// <summary>Why a scope captured earlier can't be used now, or null when the field still holds its text.</summary>
+    internal static string? FixedScopeProblem(string? current, TextScope scope) =>
+        current == null ? "Click into a text box first."
+        : !string.Equals(current, scope.FullText, StringComparison.Ordinal) ? "The text has changed since it was checked. Run the check again."
+        : null;
 
     /// <summary>
     /// The text a panel tool works on (the selection, or all the text), after the shared checks. <paramref name="done"/>
@@ -43,7 +55,7 @@ public sealed partial class Engine
 
     public void CancelRewrite() => Post(() => aiCts?.Cancel());
 
-    public void ApplyRewrite(TextScope scope, string replacement) => Post(() => DoApplyRewrite(scope, replacement));
+    public void ApplyRewrite(TextScope scope, string replacement, string? doneNotice = null) => Post(() => DoApplyRewrite(scope, replacement, doneNotice));
 
     public void DetectTone(Action<ToneResult?, string?> done) => Post(() => DoTone(done));
 
@@ -400,11 +412,21 @@ public sealed partial class Engine
     /// <summary>The word for what a write task does, for messages like "There's no text to translate yet."</summary>
     internal static string VerbFor(string task) => task is "translate" or "paraphrase" or "humanize" ? task : "rewrite";
 
-    void DoRewrite(WriteRequest request, Action<AiUpdate> onUpdate)
+    void DoRewrite(WriteRequest request, TextScope? on, Action<AiUpdate> onUpdate)
     {
         int seq = ++aiSeq;
         var f = field;
-        var scope = f == null ? null : ReadScope(f);
+        TextScope? scope;
+        if (on != null)
+        {
+            if (FixedScopeProblem(f?.Read(TextModel.MaxChars + 1), on) is { } stale)
+            {
+                onUpdate(new AiUpdate(seq, "", true, stale, null));
+                return;
+            }
+            scope = on;
+        }
+        else scope = f == null ? null : ReadScope(f);
         if (ScopeProblem(scope, 12_000, VerbFor(request.Task)) is { } problem)
         {
             onUpdate(new AiUpdate(seq, "", true, problem, null));
@@ -432,7 +454,7 @@ public sealed partial class Engine
         }, cts.Token);
     }
 
-    void DoApplyRewrite(TextScope scope, string replacement)
+    void DoApplyRewrite(TextScope scope, string replacement, string? doneNotice)
     {
         var f = field;
         if (f == null)
@@ -443,7 +465,7 @@ public sealed partial class Engine
         var (ok, error) = Replace(f, scope.Start, scope.Text, replacement);
         lastApply = ok ? "rewrite:ok" : "rewrite:failed";
         Log.Info($"rewrite applied in {f.Info.ProcessName}: {(ok ? "ok" : "failed")}");
-        onNotice(ok ? "Replaced with the rewrite." : error!);
+        onNotice(ok ? doneNotice ?? "Replaced with the rewrite." : error!);
         PublishState();
     }
 
