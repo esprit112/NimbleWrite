@@ -4,11 +4,12 @@ using System.Linq;
 using System.Windows;
 using System.Windows.Threading;
 using NimbleWrite.Desktop.Core;
+using NimbleWrite.Desktop.UI.Panels;
 
 namespace NimbleWrite.Desktop.UI;
 
 /// <summary>Owns the on-screen windows and turns engine snapshots and mouse movement into what you see.</summary>
-internal sealed class UiController
+internal sealed class UiController : IPanelActions
 {
     readonly DesktopConfig config;
     readonly Dispatcher dispatcher = Dispatcher.CurrentDispatcher;
@@ -25,12 +26,19 @@ internal sealed class UiController
     DateTime hoverSince;
     DateTime? leftCardAt;
     string? highlight;
+    RewriteResult? activeRewrite;
 
     public UiController(DesktopConfig config)
     {
         this.config = config;
         card = new CardWindow(this);
-        panel = new PanelWindow(this);
+        panel = new PanelWindow(this, config.LastTab);
+        // Typing in the panel borrows the keyboard; it goes back to the app (and the text box in it) afterwards.
+        panel.TypingReturnTo = () => state?.Target?.Hwnd ?? IntPtr.Zero;
+        panel.TypingEnded += back =>
+        {
+            if (back) engine.Refocus();
+        };
         badge.Clicked += TogglePanel;
         hoverTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(50), DispatcherPriority.Input, (_, _) => OnHover(), dispatcher);
     }
@@ -192,15 +200,52 @@ internal sealed class UiController
 
     public void AcceptAll(IReadOnlyList<string> ids) => engine.ApplyAll(ids);
 
-    public void Rewrite(string task) => engine.Rewrite(task, u => dispatcher.InvokeAsync(() => panel.OnRewrite(u)));
+    public string Hotkey => config.Hotkey;
 
-    public void CancelRewrite() => engine.CancelRewrite();
+    public void Rewrite(WriteRequest request, RewriteResult sink)
+    {
+        // The engine runs one rewrite at a time; starting one stops the last, so tell that tab why it went quiet.
+        if (activeRewrite != null && !ReferenceEquals(activeRewrite, sink)) activeRewrite.Interrupted();
+        activeRewrite = sink;
+        engine.Rewrite(request, u => dispatcher.InvokeAsync(() => sink.OnUpdate(u)));
+    }
+
+    public void CancelRewrite(RewriteResult sink)
+    {
+        if (!ReferenceEquals(activeRewrite, sink)) return;
+        activeRewrite = null;
+        engine.CancelRewrite();
+    }
 
     public void ApplyRewrite(TextScope scope, string text) => engine.ApplyRewrite(scope, text);
 
-    public void DetectTone() => engine.DetectTone((t, err) => dispatcher.InvokeAsync(() => panel.OnTone(t, err)));
+    public void DetectTone(Action<ToneResult?, string?> done) => engine.DetectTone((t, err) => dispatcher.InvokeAsync(() => done(t, err)));
+
+    public void Notice(string text) => panel.ShowNotice(text);
 
     public void OpenEditor() => engine.OpenInEditor();
+
+    /// <summary>The web editor's settings page. (A native Settings window replaces this in a later phase.)</summary>
+    public void OpenWritingSettings()
+    {
+        string url = config.ServerUrl.TrimEnd('/') + "/#/settings";
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true });
+        }
+        catch (Exception e)
+        {
+            Log.Error("open settings", e);
+            panel.ShowNotice("Couldn't open the settings page.");
+        }
+    }
+
+    public void TabChanged(string id)
+    {
+        if (config.LastTab == id) return;
+        config.LastTab = id;
+        config.Save();
+    }
 
     public void PauseHour()
     {
@@ -228,7 +273,8 @@ internal sealed class UiController
     public void OpenPanelFromCard()
     {
         HideCard();
-        if (!panel.IsVisible) TogglePanel();
+        if (panel.IsVisible) panel.ShowTab("review", state);
+        else OpenPanel("review");
     }
 
     public void TogglePanel()
@@ -238,6 +284,11 @@ internal sealed class UiController
             ClosePanel();
             return;
         }
+        OpenPanel(null);
+    }
+
+    void OpenPanel(string? tab)
+    {
         if (state?.Target == null || geo == null)
         {
             Log.Info($"assistant requested with no field (target={(state?.Target != null)}, geometry={(geo != null)})");
@@ -245,7 +296,7 @@ internal sealed class UiController
             return;
         }
         card.Close2();
-        panel.Open(state, geo.Field);
-        Log.Info($"assistant opened ({(geo.Field.IsEmpty ? "no field rectangle" : "beside the field")})");
+        panel.Open(state, geo.Field, tab);
+        Log.Info($"assistant opened on {panel.Tabs.Active.Id} ({(geo.Field.IsEmpty ? "no field rectangle" : "beside the field")})");
     }
 }

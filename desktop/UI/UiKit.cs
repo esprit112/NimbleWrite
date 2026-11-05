@@ -102,6 +102,25 @@ internal static class UiKit
 
     public static Border Divider(double top = 10, double bottom = 10) => new() { Height = 1, Background = Theme.Line, Margin = new Thickness(0, top, 0, bottom) };
 
+    /// <summary>A glyph from <see cref="Icons"/>, sized for buttons.</summary>
+    public static TextBlock Glyph(string glyph, double size = 14, Brush? brush = null) => new()
+    {
+        Text = glyph,
+        FontFamily = Icons.Glyphs,
+        FontSize = size,
+        Foreground = brush ?? Theme.Muted,
+        HorizontalAlignment = HorizontalAlignment.Center,
+        VerticalAlignment = VerticalAlignment.Center,
+    };
+
+    /// <summary>A small ghost button showing only a glyph; <paramref name="tip"/> names it for screen readers.</summary>
+    public static Border IconButton(string glyph, Action onClick, string tip, double size = 13)
+    {
+        var b = Clickable(Glyph(glyph, size), onClick, Kind.Ghost, tip);
+        b.Padding = new Thickness(7);
+        return b;
+    }
+
     public static Ellipse Dot(Brush b, double size = 8) => new() { Width = size, Height = size, Fill = b, VerticalAlignment = VerticalAlignment.Center };
 
     public static T Spaced<T>(T e, double right = 6, double bottom = 6) where T : FrameworkElement

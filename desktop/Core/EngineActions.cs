@@ -49,6 +49,24 @@ public sealed partial class Engine
 
     public void OpenInEditor() => Post(DoOpenInEditor);
 
+    /// <summary>
+    /// Put the keyboard back in the field after the panel borrowed it for typing. Only when the field's window is in
+    /// front again (the panel hands it back first), so this never pulls the user out of an app they clicked into.
+    /// </summary>
+    public void Refocus() => Post(() =>
+    {
+        var f = field;
+        if (f == null || Native.GetForegroundWindow() != f.Info.Hwnd) return;
+        try
+        {
+            f.Element.SetFocus();
+        }
+        catch (COMException e)
+        {
+            Log.Info($"UI Automation error 0x{e.HResult:x8} putting focus back after typing in the panel");
+        }
+    });
+
     /// <summary>Forget cached results for the current text and check it again.</summary>
     public void Recheck() => Post(() =>
     {

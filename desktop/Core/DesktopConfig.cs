@@ -26,6 +26,8 @@ public sealed class DesktopConfig
     public bool Welcomed { get; set; }
     /// <summary>Installed app: the user chose "Not now" on the NVIDIA key prompt, so it isn't shown again at startup.</summary>
     public bool KeyPromptDismissed { get; set; }
+    /// <summary>The assistant panel's tab that was open last; the panel opens on it again.</summary>
+    public string LastTab { get; set; } = "review";
 
     [JsonIgnore] public DateTime PausedUntil { get; set; } = DateTime.MinValue;
 

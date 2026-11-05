@@ -1,7 +1,10 @@
 using System;
 using System.Windows;
+using System.Windows.Controls.Primitives;
+using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
+using System.Windows.Media.Media3D;
 using NimbleWrite.Desktop.Core;
 
 namespace NimbleWrite.Desktop.UI;
@@ -10,6 +13,12 @@ namespace NimbleWrite.Desktop.UI;
 /// A topmost window that never takes focus, so the app you're typing in keeps the keyboard while you click our
 /// buttons. Positioned in physical pixels (the coordinates UI Automation gives us).
 /// </summary>
+/// <remarks>
+/// Typing mode: a text box in the window (an <see cref="InputBox"/>) can ask for the keyboard. The window then becomes
+/// activatable and takes the foreground (allowed, because the click on it was the last input). Enter, Escape, or a
+/// click anywhere outside the text box hands the keyboard straight back to <see cref="TypingReturnTo"/>, the app the
+/// user was writing in, with its selection intact. Tested in Windows 11 Notepad and a Chromium textarea.
+/// </remarks>
 internal class NoActivateWindow : Window
 {
     readonly bool clickThrough;
@@ -29,6 +38,20 @@ internal class NoActivateWindow : Window
         FontFamily = UiKit.Font;
         UseLayoutRounding = true;
         SourceInitialized += OnSourceInitialized;
+        // A click on a button (or anywhere but a text box) ends typing first, so the button's action, which may type
+        // into the app, runs with the keyboard back where it belongs.
+        PreviewMouseLeftButtonDown += (_, e) =>
+        {
+            if (Typing && !InTextBox(e.OriginalSource)) EndTyping(restore: true);
+        };
+        Deactivated += (_, _) =>
+        {
+            if (Typing) EndTyping(restore: false); // the user clicked into another window: it has the keyboard now
+        };
+        IsVisibleChanged += (_, _) =>
+        {
+            if (!IsVisible && Typing) EndTyping(restore: true);
+        };
     }
 
     void OnSourceInitialized(object? sender, EventArgs e)
@@ -41,13 +64,71 @@ internal class NoActivateWindow : Window
         HwndSource.FromHwnd(hwnd)?.AddHook(Hook);
     }
 
-    static IntPtr Hook(IntPtr hwnd, int msg, IntPtr w, IntPtr l, ref bool handled)
+    IntPtr Hook(IntPtr hwnd, int msg, IntPtr w, IntPtr l, ref bool handled)
     {
-        if (msg != Native.WM_MOUSEACTIVATE) return IntPtr.Zero;
+        if (msg != Native.WM_MOUSEACTIVATE || Typing) return IntPtr.Zero;
         handled = true;
         return new IntPtr(Native.MA_NOACTIVATE);
     }
 
+    // ---- typing mode ----
+
+    /// <summary>True while a text box in this window has the keyboard.</summary>
+    public bool Typing { get; private set; }
+
+    /// <summary>The window to give the keyboard back to when typing ends (the app the user was writing in).</summary>
+    public Func<IntPtr>? TypingReturnTo { get; set; }
+
+    /// <summary>Typing ended. True when the keyboard went back to <see cref="TypingReturnTo"/>.</summary>
+    public event Action<bool>? TypingEnded;
+
+    /// <summary>Take the keyboard so a text box here can be typed into. False if Windows didn't allow it.</summary>
+    public bool BeginTyping()
+    {
+        if (Typing) return true;
+        var hwnd = Handle;
+        long ex = Native.GetWindowLongPtr(hwnd, Native.GWL_EXSTYLE).ToInt64();
+        Native.SetWindowLongPtr(hwnd, Native.GWL_EXSTYLE, new IntPtr(ex & ~Native.WS_EX_NOACTIVATE));
+        Typing = true;
+        Native.SetForegroundWindow(hwnd);
+        Activate();
+        if (Native.GetForegroundWindow() == hwnd) return true;
+        Log.Info("typing mode: Windows didn't give the panel the keyboard");
+        EndTyping(restore: false);
+        return false;
+    }
+
+    /// <summary>Stop taking the keyboard; with <paramref name="restore"/>, hand it back to the app the user was writing in.</summary>
+    public void EndTyping(bool restore)
+    {
+        if (!Typing) return;
+        Typing = false;
+        var hwnd = Handle;
+        long ex = Native.GetWindowLongPtr(hwnd, Native.GWL_EXSTYLE).ToInt64();
+        Native.SetWindowLongPtr(hwnd, Native.GWL_EXSTYLE, new IntPtr(ex | Native.WS_EX_NOACTIVATE));
+        bool back = false;
+        if (restore && TypingReturnTo?.Invoke() is { } target && target != IntPtr.Zero)
+        {
+            Native.SetForegroundWindow(target);
+            back = Native.GetForegroundWindow() == target;
+            if (!back) Log.Info("typing mode: couldn't give the keyboard back to the app");
+        }
+        Keyboard.ClearFocus();
+        TypingEnded?.Invoke(back);
+    }
+
+    static bool InTextBox(object? source)
+    {
+        var d = source as DependencyObject;
+        while (d != null)
+        {
+            if (d is TextBoxBase) return true;
+            d = d is Visual or Visual3D ? VisualTreeHelper.GetParent(d) : LogicalTreeHelper.GetParent(d);
+        }
+        return false;
+    }
+
+    // ---- placement ----
     public IntPtr Handle => new WindowInteropHelper(this).EnsureHandle();
 
     public void MoveTo(double x, double y) =>

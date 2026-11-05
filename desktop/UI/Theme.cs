@@ -21,9 +21,12 @@ internal static class Theme
     public static Brush BrandText { get; private set; } = Brushes.Green;
     public static Brush OnBrand { get; } = Brushes.White;
 
-    public static void Load()
+    public static void Load() => Apply(ReadDark());
+
+    /// <summary>Switch palettes. Elements pick up brushes when they're built, so build windows after calling this.</summary>
+    internal static void Apply(bool dark)
     {
-        Dark = ReadDark();
+        Dark = dark;
         if (Dark)
         {
             Surface = B("#1C211F"); Raised = B("#242A27"); Text = B("#EEF2F0"); Muted = B("#A5AFAA"); Line = B("#353C39");
