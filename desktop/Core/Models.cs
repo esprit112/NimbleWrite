@@ -47,8 +47,11 @@ public sealed class HealthInfo
 {
     public bool Ok { get; set; }
     public bool NimConfigured { get; set; }
+    /// <summary>True when the server has a Brave Search key (web search for plagiarism and citations).</summary>
+    public bool SearchConfigured { get; set; }
     public bool Packaged { get; set; }
     public string? Version { get; set; }
+    public ModelSettings? Models { get; set; }
 }
 
 /// <summary>POST /api/setup/test-key: whether NVIDIA accepts a key. The key is never sent back.</summary>

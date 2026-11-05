@@ -25,7 +25,21 @@ public sealed partial class Engine
 
     public void AddToDictionary(string issueId) => Post(() => DoAddWord(issueId));
 
-    public void Rewrite(string task, Action<AiUpdate> onUpdate) => Post(() => DoRewrite(task, onUpdate));
+    public void Rewrite(string task, Action<AiUpdate> onUpdate) => Rewrite(new WriteRequest(task, ""), onUpdate);
+
+    /// <summary>Stream any write task on the selection (or all the text). The request's Text and Context are filled in here.</summary>
+    public void Rewrite(WriteRequest request, Action<AiUpdate> onUpdate) => Post(() => DoRewrite(request, onUpdate));
+
+    /// <summary>
+    /// The text a panel tool works on (the selection, or all the text), after the shared checks. <paramref name="done"/>
+    /// gets the scope, or null and the reason it can't be used. <paramref name="verb"/> finishes "There's no text to … yet".
+    /// </summary>
+    public void CaptureScope(int maxChars, string verb, Action<TextScope?, string?> done) => Post(() =>
+    {
+        var scope = field == null ? null : ReadScope(field);
+        string? problem = ScopeProblem(scope, maxChars, verb);
+        done(problem == null ? scope : null, problem);
+    });
 
     public void CancelRewrite() => Post(() => aiCts?.Cancel());
 
@@ -352,40 +366,39 @@ public sealed partial class Engine
         return new TextScope(0, full.Length, full, full, true);
     }
 
-    void DoRewrite(string task, Action<AiUpdate> onUpdate)
+    /// <summary>
+    /// Why <paramref name="scope"/> can't go to the AI, or null when it can. Every panel tool uses this, so none can skip
+    /// the privacy guard: a field that looks like it holds passwords or keys is never sent, not even a selection of it.
+    /// </summary>
+    internal static string? ScopeProblem(TextScope? scope, int maxChars, string verb)
+    {
+        if (scope == null) return "Click into a text box first.";
+        if (scope.Text.Trim().Length == 0) return $"There's no text to {verb} yet.";
+        if (scope.Text.Length > maxChars) return $"That's a lot of text to {verb} at once. Select a part of it first.";
+        if (TextModel.LooksSecret(scope.FullText)) return "This looks like it contains passwords or keys, so NimbleWrite won't send it to the AI.";
+        return null;
+    }
+
+    void DoRewrite(WriteRequest request, Action<AiUpdate> onUpdate)
     {
         int seq = ++aiSeq;
         var f = field;
-        if (f == null)
+        var scope = f == null ? null : ReadScope(f);
+        if (ScopeProblem(scope, 12_000, "rewrite") is { } problem)
         {
-            onUpdate(new AiUpdate(seq, "", true, "Click into a text box first.", null));
-            return;
-        }
-        var scope = ReadScope(f);
-        if (scope == null || scope.Text.Trim().Length == 0)
-        {
-            onUpdate(new AiUpdate(seq, "", true, "There's no text to rewrite yet.", null));
-            return;
-        }
-        if (scope.Text.Length > 12_000)
-        {
-            onUpdate(new AiUpdate(seq, "", true, "That's a lot of text to rewrite at once. Select a part of it first.", null));
-            return;
-        }
-        if (TextModel.LooksSecret(scope.FullText))
-        {
-            onUpdate(new AiUpdate(seq, "", true, "This looks like it contains passwords or keys, so NimbleWrite won't send it to the AI.", null));
+            onUpdate(new AiUpdate(seq, "", true, problem, null));
             return;
         }
         aiCts?.Cancel();
         var cts = aiCts = CancellationTokenSource.CreateLinkedTokenSource(life.Token);
         onUpdate(new AiUpdate(seq, "", false, null, scope));
-        string? context = scope.Whole ? null : scope.FullText.Length > 6000 ? null : scope.FullText;
+        string? context = scope!.Whole ? null : scope.FullText.Length > 6000 ? null : scope.FullText;
+        var req = request with { Text = scope.Text, Context = context };
         _ = Task.Run(async () =>
         {
             try
             {
-                string result = await api.WriteAsync(task, scope.Text, context, t => onUpdate(new AiUpdate(seq, t, false, null, scope)), cts.Token).ConfigureAwait(false);
+                string result = await api.WriteAsync(req, t => onUpdate(new AiUpdate(seq, t, false, null, scope)), cts.Token).ConfigureAwait(false);
                 onUpdate(new AiUpdate(seq, TextModel.KeepEdges(scope.Text, result), true, null, scope));
             }
             catch (OperationCanceledException)

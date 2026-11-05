@@ -62,10 +62,17 @@ public sealed class ApiClient : IDisposable
     static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web) { DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
     readonly HttpClient http;
 
-    public ApiClient(string baseUrl)
+    public ApiClient(string baseUrl) : this(baseUrl, null)
+    {
+    }
+
+    /// <summary>Tests pass a fake <paramref name="handler"/> so no request leaves the process.</summary>
+    internal ApiClient(string baseUrl, HttpMessageHandler? handler)
     {
         BaseUrl = baseUrl.TrimEnd('/');
-        http = new HttpClient { BaseAddress = new Uri(BaseUrl + "/"), Timeout = TimeSpan.FromSeconds(150) };
+        http = handler == null ? new HttpClient() : new HttpClient(handler);
+        http.BaseAddress = new Uri(BaseUrl + "/");
+        http.Timeout = TimeSpan.FromSeconds(150);
         http.DefaultRequestHeaders.UserAgent.ParseAdd("NimbleWrite-Desktop/1.0");
     }
 
@@ -149,9 +156,20 @@ public sealed class ApiClient : IDisposable
     }
 
     /// <summary>Stream an AI rewrite. <paramref name="onText"/> receives the text so far after each chunk.</summary>
-    public async Task<string> WriteAsync(string task, string text, string? context, Action<string> onText, CancellationToken ct)
+    public Task<string> WriteAsync(string task, string text, string? context, Action<string> onText, CancellationToken ct) =>
+        WriteAsync(new WriteRequest(task, text, context), onText, ct);
+
+    /// <summary>Stream any write task (rewrite, paraphrase, humanize, translate, custom instruction…). Fields left null aren't sent.</summary>
+    public async Task<string> WriteAsync(WriteRequest request, Action<string> onText, CancellationToken ct)
     {
-        using var req = new HttpRequestMessage(HttpMethod.Post, "api/ai/write") { Content = JsonContent.Create(new { task, text, context }, options: Json) };
+        var body = request with
+        {
+            Text = Clip(request.Text, 60_000),
+            Context = request.Context == null ? null : Clip(request.Context, 60_000),
+            Instruction = request.Instruction == null ? null : Clip(request.Instruction, 4000),
+            TargetLanguage = request.TargetLanguage == null ? null : Clip(request.TargetLanguage, 60),
+        };
+        using var req = new HttpRequestMessage(HttpMethod.Post, "api/ai/write") { Content = JsonContent.Create(body, options: Json) };
         using var r = await http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
         await EnsureOk(r, ct).ConfigureAwait(false);
         await using var stream = await r.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
@@ -175,6 +193,90 @@ public sealed class ApiClient : IDisposable
             }
         }
         return sb.ToString();
+    }
+
+    // ---- the editor's tools (limits mirror the server's Zod schemas, like src/api.ts) ----
+
+    public Task<ReaderReactions> ReaderAsync(string text, string reader, CancellationToken ct) =>
+        SendAsync<ReaderReactions>(HttpMethod.Post, "api/ai/agents/reader", new { text = Clip(text, 40_000), reader = Clip(reader, 300) }, ct);
+
+    public Task<GraderResult> GraderAsync(string text, string rubric, string level, CancellationToken ct) =>
+        SendAsync<GraderResult>(HttpMethod.Post, "api/ai/agents/grader", new { text = Clip(text, 60_000), rubric = Clip(rubric, 20_000), level = Clip(level, 80) }, ct);
+
+    public async Task<List<ClaimToCite>> ClaimsAsync(string text, CancellationToken ct) =>
+        (await SendAsync<ClaimsResponse>(HttpMethod.Post, "api/ai/agents/claims", new { text = Clip(text, 40_000) }, ct).ConfigureAwait(false)).Claims;
+
+    public Task<AiDetectResult> DetectAsync(string text, CancellationToken ct) =>
+        SendAsync<AiDetectResult>(HttpMethod.Post, "api/ai/agents/detect", new { text = Clip(text, 60_000) }, ct);
+
+    public async Task<List<SynonymSense>> SynonymsAsync(string word, string sentence, string dialect, CancellationToken ct) =>
+        (await SendAsync<SynonymsResponse>(HttpMethod.Post, "api/ai/synonyms", new { word = Clip(word, 60), sentence = Clip(sentence, 1200), dialect }, ct).ConfigureAwait(false)).Senses;
+
+    /// <summary><paramref name="enhance"/>=false restructures only what was written; true lets the model add detail.</summary>
+    public Task<ImagePromptResult> ImagePromptAsync(string idea, string target, bool enhance, CancellationToken ct) =>
+        SendAsync<ImagePromptResult>(HttpMethod.Post, "api/ai/image-prompt", new { idea = Clip(idea, 4000), target, enhance }, ct);
+
+    public Task<PlagiarismResult> PlagiarismAsync(PlagiarismRequest request, CancellationToken ct)
+    {
+        var body = new PlagiarismRequest
+        {
+            Text = Clip(request.Text, 200_000),
+            DocId = request.DocId,
+            IncludeDocs = request.IncludeDocs,
+            Web = request.Web,
+            Sources = request.Sources.Take(10).Select(s => new PlagiarismSourceInput
+            {
+                Title = s.Title == null ? null : Clip(s.Title, 300),
+                Text = s.Text == null ? null : Clip(s.Text, 400_000),
+                Url = s.Url == null ? null : Clip(s.Url, 2000),
+            }).ToList(),
+        };
+        return SendAsync<PlagiarismResult>(HttpMethod.Post, "api/plagiarism", body, ct);
+    }
+
+    /// <summary>Read a URL or DOI and format it in every citation style.</summary>
+    public Task<CitationLookupResult> CitationLookupAsync(string input, CancellationToken ct) =>
+        SendAsync<CitationLookupResult>(HttpMethod.Post, "api/citation/lookup", new { input = Clip(input.Trim(), 2000) }, ct);
+
+    /// <summary>The Tune chat: proposes settings changes from a plain-language request. Nothing changes until <see cref="ApplyTuneAsync"/>.</summary>
+    public Task<TuneResult> TuneAsync(string message, CancellationToken ct) =>
+        SendAsync<TuneResult>(HttpMethod.Post, "api/ai/tune", new { message = Clip(message.Trim(), 800) }, ct);
+
+    public Task<TuneApplyResult> ApplyTuneAsync(IEnumerable<TuneChange> changes, CancellationToken ct) =>
+        SendAsync<TuneApplyResult>(HttpMethod.Post, "api/settings/tune", new { changes = changes.Take(20).ToList() }, ct);
+
+    public Task<WritingSettings> GetWritingSettingsAsync(CancellationToken ct) => SendAsync<WritingSettings>(HttpMethod.Get, "api/settings", null, ct);
+
+    /// <summary>Change some writing settings; the server merges them, so changes made in the editor are kept.</summary>
+    public Task<WritingSettings> PatchSettingsAsync(SettingsPatch patch, CancellationToken ct) => SendAsync<WritingSettings>(HttpMethod.Patch, "api/settings", patch, ct);
+
+    /// <summary>Word counts, readability and (given the open suggestion counts per category) the overall score.</summary>
+    public Task<TextStatsResponse> TextStatsAsync(string text, IReadOnlyDictionary<string, int>? counts, CancellationToken ct) =>
+        SendAsync<TextStatsResponse>(HttpMethod.Post, "api/text/stats", new { text = Clip(text, 200_000), counts }, ct);
+
+    public Task<InsightsResponse> InsightsAsync(CancellationToken ct) => SendAsync<InsightsResponse>(HttpMethod.Get, "api/insights", null, ct);
+
+    public async Task<List<DocSummary>> ListDocsAsync(CancellationToken ct) =>
+        (await SendAsync<DocsResponse>(HttpMethod.Get, "api/docs", null, ct).ConfigureAwait(false)).Docs;
+
+    public Task<DocDetail> GetDocAsync(string id, CancellationToken ct) => SendAsync<DocDetail>(HttpMethod.Get, $"api/docs/{Uri.EscapeDataString(id)}", null, ct);
+
+    async Task<T> SendAsync<T>(HttpMethod method, string path, object? body, CancellationToken ct) where T : new()
+    {
+        using var req = new HttpRequestMessage(method, path);
+        if (body != null) req.Content = JsonContent.Create(body, body.GetType(), options: Json);
+        using var r = await http.SendAsync(req, ct).ConfigureAwait(false);
+        await EnsureOk(r, ct).ConfigureAwait(false);
+        return await r.Content.ReadFromJsonAsync<T>(Json, ct).ConfigureAwait(false) ?? new T();
+    }
+
+    /// <summary>At most <paramref name="max"/> UTF-16 units, never ending on half of a surrogate pair (an emoji cut in two).</summary>
+    internal static string Clip(string s, int max)
+    {
+        if (s.Length <= max) return s;
+        int n = max;
+        if (n > 0 && char.IsHighSurrogate(s[n - 1])) n--;
+        return s[..n];
     }
 
     static async Task EnsureOk(HttpResponseMessage r, CancellationToken ct)

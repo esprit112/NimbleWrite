@@ -1,12 +1,14 @@
 // Documents, settings, stats, import and research tools (plagiarism, citations).
 import express, { Router } from 'express';
+import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import * as cheerio from 'cheerio';
 import mammoth from 'mammoth';
 import { marked } from 'marked';
 import { CATEGORIES } from '../../shared/types';
 import { ISSUE_TYPES } from '../../shared/meta';
-import { MAX_INSTRUCTIONS } from '../../shared/tune';
+import { applyTuneChanges, MAX_INSTRUCTIONS } from '../../shared/tune';
+import { computeStats, overallScore, readabilityLabel } from '../../shared/text';
 import type { CitationMeta, CitationStyle, HealthResponse, InsightsResponse, KeyTestResult } from '../../shared/types';
 import { config } from '../config';
 import { chat, listChatModels, testApiKey } from '../nim';
@@ -193,6 +195,62 @@ dataRouter.post('/settings/dictionary', async (req, res) => {
   const s = await getSettings();
   if (!s.dictionary.some((w) => w.toLowerCase() === word.toLowerCase())) await saveSettings({ ...s, dictionary: [...s.dictionary, word].slice(-5000) });
   res.status(204).end();
+});
+
+/**
+ * Change a few settings without replacing the rest (used by the desktop companion's Settings window). PUT replaces
+ * the whole object, which would undo anything changed in the editor meanwhile; this merges on the server instead.
+ * Only these fields: the dictionary, style guide, snippets and models are edited in the editor.
+ */
+const SettingsPatch = z.object({
+  dialect: SettingsBody.shape.dialect.optional(),
+  categories: z.object({ correctness: z.boolean(), clarity: z.boolean(), engagement: z.boolean(), delivery: z.boolean() }).partial().optional(),
+  localRules: z.boolean().optional(),
+  defaultGoals: goals.optional(),
+  showGoalsOnNewDoc: z.boolean().optional(),
+  theme: SettingsBody.shape.theme.optional(),
+}).strict();
+
+dataRouter.patch('/settings', async (req, res) => {
+  const p = SettingsPatch.parse(req.body ?? {});
+  const cur = await getSettings();
+  const next = { ...cur, ...p, categories: { ...cur.categories, ...p.categories } };
+  if (!Object.values(next.categories).some(Boolean)) {
+    res.status(400).json({ error: 'Keep at least one suggestion category on.' });
+    return;
+  }
+  res.json(await saveSettings(next));
+});
+
+/** The changes the Tune suggestions chat proposes (same shapes as shared/types.ts TuneChange). */
+const TuneChangeBody = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('instruction'), text: z.string().max(MAX_INSTRUCTIONS) }),
+  z.object({ kind: z.literal('mute'), type: z.enum(ISSUE_TYPES as [string, ...string[]]), title: z.string().max(200) }),
+  z.object({ kind: z.literal('unmute'), type: z.enum(ISSUE_TYPES as [string, ...string[]]), title: z.string().max(200) }),
+  z.object({ kind: z.literal('dictionary'), word: z.string().max(80) }),
+  z.object({ kind: z.literal('style_rule'), find: z.string().max(200), replace: z.string().max(200), note: z.string().max(300).optional() }),
+]);
+
+/** Apply confirmed Tune changes here, with the same code the editor uses, so thin clients don't need their own copy. */
+dataRouter.post('/settings/tune', async (req, res) => {
+  const { changes } = z.object({ changes: z.array(TuneChangeBody).min(1).max(20) }).parse(req.body ?? {});
+  const cur = await getSettings();
+  const { patch, applied, skipped } = applyTuneChanges(cur, changes, () => randomUUID().slice(0, 8));
+  const settings = applied > 0 ? await saveSettings({ ...cur, ...patch }) : cur;
+  res.json({ settings, applied, skipped });
+});
+
+// ---------- text statistics ----------
+const StatsBody = z.object({
+  text: z.string().min(1).max(200_000),
+  counts: z.object({ correctness: z.number().int().min(0), clarity: z.number().int().min(0), engagement: z.number().int().min(0), delivery: z.number().int().min(0) }).optional(),
+});
+
+/** Word counts, reading time, readability and (given the open suggestion counts) the overall score, as the editor shows them. */
+dataRouter.post('/text/stats', (req, res) => {
+  const { text, counts } = StatsBody.parse(req.body ?? {});
+  const stats = computeStats(text);
+  res.json({ stats, readability: readabilityLabel(stats.readability), score: counts ? overallScore(stats.words, counts, stats.readability) : null });
 });
 
 dataRouter.get('/models', async (_req, res) => {
