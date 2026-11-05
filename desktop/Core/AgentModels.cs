@@ -6,7 +6,7 @@ namespace NimbleWrite.Desktop.Core;
 // web defaults map it onto these PascalCase properties). Only what the companion shows or sends back is included.
 
 /// <summary>What a write task asks for: POST /api/ai/write. Null fields aren't sent.</summary>
-public sealed record WriteRequest(string Task, string Text, string? Context = null, string? Instruction = null, string? Mode = null, string? TargetLanguage = null);
+public sealed record WriteRequest(string Task, string Text, string? Context = null, string? Instruction = null, string? Mode = null, string? TargetLanguage = null, string? SourceLanguage = null);
 
 public sealed class ModelSettings
 {

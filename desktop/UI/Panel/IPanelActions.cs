@@ -27,6 +27,12 @@ internal interface IPanelActions
 
     void DetectTone(Action<ToneResult?, string?> done);
 
+    /// <summary>Languages last translated into, most recent first.</summary>
+    IReadOnlyList<string> RecentLanguages { get; }
+
+    /// <summary>The user translated into <paramref name="language"/>; offer it first next time.</summary>
+    void UsedLanguage(string language);
+
     /// <summary>A short message in the panel's notice line.</summary>
     void Notice(string text);
 

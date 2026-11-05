@@ -62,6 +62,11 @@ public class ApiClientToolTests
         b = Body(s, 1);
         Assert.Equal(new[] { "instruction", "mode", "task", "text" }, Keys(b));
         Assert.Equal("custom", b.GetProperty("mode").GetString());
+
+        await api.WriteAsync(new WriteRequest("translate", "Hallo", TargetLanguage: "English (British)", SourceLanguage: "German"), _ => { }, None);
+        b = Body(s, 2);
+        Assert.Equal(new[] { "sourceLanguage", "targetLanguage", "task", "text" }, Keys(b));
+        Assert.Equal("German", b.GetProperty("sourceLanguage").GetString());
     }
 
     [Fact]

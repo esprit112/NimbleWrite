@@ -12,6 +12,9 @@ internal static class Icons
 
     public const string Review = "\uE73E"; // CheckMark
     public const string Assistant = "\uE945"; // LightningBolt
+    public const string Paraphrase = "\uE8AC"; // Rename
+    public const string Humanize = "\uE77B"; // Contact
+    public const string Translate = "\uE8C1"; // Characters
     public const string Performance = "\uE9D9"; // Diagnostic
     public const string Settings = "\uE713"; // Setting
     public const string Close = "\uE711"; // Cancel

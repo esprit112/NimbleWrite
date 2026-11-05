@@ -43,4 +43,14 @@ public class ScopeGuardTests
     [Fact]
     public void OrdinaryTextPasses() =>
         Assert.Null(Engine.ScopeProblem(Selection("Their going to the libary tomorow.", "libary"), 12_000, "rewrite"));
+
+    [Fact]
+    public void MessagesUseTheToolsOwnVerb()
+    {
+        Assert.Equal("translate", Engine.VerbFor("translate"));
+        Assert.Equal("paraphrase", Engine.VerbFor("paraphrase"));
+        Assert.Equal("humanize", Engine.VerbFor("humanize"));
+        Assert.Equal("rewrite", Engine.VerbFor("improve"));
+        Assert.Equal("There's no text to translate yet.", Engine.ScopeProblem(Whole(""), 12_000, Engine.VerbFor("translate")));
+    }
 }

@@ -88,9 +88,10 @@ internal sealed class RewriteResult : StackPanel
         }
         string what = u.Scope?.Whole == false ? "your selection" : "all the text";
         bool insert = Inserts(task);
+        var (doing, noun) = Words(task);
         SetStatus(u.Done
-            ? insert ? $"From {what}:" : $"Rewrite of {what}:"
-            : u.Text.Length == 0 ? "Thinking…" : insert ? "Writing…" : $"Rewriting {what}…");
+            ? insert ? $"From {what}:" : $"{noun} of {what}:"
+            : u.Text.Length == 0 ? "Thinking…" : insert ? "Writing…" : $"{doing} {what}…");
         text.Text = u.Text;
         box.Visibility = u.Text.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
         actions.Visibility = CanApply ? Visibility.Visible : Visibility.Collapsed;
@@ -144,6 +145,15 @@ internal sealed class RewriteResult : StackPanel
         status.Text = s;
         status.Visibility = Visibility.Visible;
     }
+
+    /// <summary>How the status line talks about a task while it runs, and once it's done.</summary>
+    internal static (string Doing, string Noun) Words(string task) => task switch
+    {
+        "translate" => ("Translating", "Translation"),
+        "paraphrase" => ("Paraphrasing", "Paraphrase"),
+        "humanize" => ("Humanizing", "Humanized version"),
+        _ => ("Rewriting", "Rewrite"),
+    };
 
     /// <summary>Tasks whose result goes after the text (a summary, a reply…) instead of replacing it.</summary>
     public static bool Inserts(string task) => task is "summarize" or "continue" or "reply" or "outline" or "brainstorm";

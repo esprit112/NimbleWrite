@@ -140,9 +140,17 @@ ${(r.context || r.text).slice(0, 14_000)}
 
   if (r.task === 'translate') {
     // Riva Translate ignores system prompts; the instruction must be in the user turn (works for general LLMs too).
+    // No source language (the desktop panel's "Detect") lets the model work it out instead of assuming English.
+    const to = r.targetLanguage || 'French';
+    const from = r.sourceLanguage?.trim();
     return [
       { role: 'system', content: 'You are a professional translator. Preserve meaning, tone, formatting and line breaks. Output only the translation.' },
-      { role: 'user', content: `Translate the following text from ${r.sourceLanguage || 'English'} to ${r.targetLanguage || 'French'}:\n${r.text}` },
+      {
+        role: 'user',
+        content: from
+          ? `Translate the following text from ${from} to ${to}:\n${r.text}`
+          : `Translate the following text into ${to}. Detect its language yourself; if it is already in ${to}, return it unchanged:\n${r.text}`,
+      },
     ];
   }
 

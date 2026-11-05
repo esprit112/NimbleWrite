@@ -126,6 +126,9 @@ internal sealed class PanelWindow : NoActivateWindow
     {
         new ReviewTab(host),
         new AssistantTab(host),
+        new RewriteTab(host, RewriteKind.Paraphrase),
+        new RewriteTab(host, RewriteKind.Humanize),
+        new RewriteTab(host, RewriteKind.Translate),
         new PerformanceTab(host),
     };
 

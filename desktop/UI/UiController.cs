@@ -223,6 +223,16 @@ internal sealed class UiController : IPanelActions
 
     public void Notice(string text) => panel.ShowNotice(text);
 
+    public IReadOnlyList<string> RecentLanguages => config.RecentLanguages;
+
+    public void UsedLanguage(string language)
+    {
+        var next = Languages.PushRecent(config.RecentLanguages, language);
+        if (next.SequenceEqual(config.RecentLanguages)) return;
+        config.RecentLanguages = next;
+        config.Save();
+    }
+
     public void OpenEditor() => engine.OpenInEditor();
 
     /// <summary>The web editor's settings page. (A native Settings window replaces this in a later phase.)</summary>

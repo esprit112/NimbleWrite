@@ -168,6 +168,7 @@ public sealed class ApiClient : IDisposable
             Context = request.Context == null ? null : Clip(request.Context, 60_000),
             Instruction = request.Instruction == null ? null : Clip(request.Instruction, 4000),
             TargetLanguage = request.TargetLanguage == null ? null : Clip(request.TargetLanguage, 60),
+            SourceLanguage = request.SourceLanguage == null ? null : Clip(request.SourceLanguage, 60),
         };
         using var req = new HttpRequestMessage(HttpMethod.Post, "api/ai/write") { Content = JsonContent.Create(body, options: Json) };
         using var r = await http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);

@@ -28,6 +28,8 @@ public sealed class DesktopConfig
     public bool KeyPromptDismissed { get; set; }
     /// <summary>The assistant panel's tab that was open last; the panel opens on it again.</summary>
     public string LastTab { get; set; } = "review";
+    /// <summary>Languages last translated into, most recent first (at most three); the Translate tab offers them first.</summary>
+    public List<string> RecentLanguages { get; set; } = new() { "French", "Spanish", "German" };
 
     [JsonIgnore] public DateTime PausedUntil { get; set; } = DateTime.MinValue;
 

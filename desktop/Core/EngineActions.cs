@@ -397,12 +397,15 @@ public sealed partial class Engine
         return null;
     }
 
+    /// <summary>The word for what a write task does, for messages like "There's no text to translate yet."</summary>
+    internal static string VerbFor(string task) => task is "translate" or "paraphrase" or "humanize" ? task : "rewrite";
+
     void DoRewrite(WriteRequest request, Action<AiUpdate> onUpdate)
     {
         int seq = ++aiSeq;
         var f = field;
         var scope = f == null ? null : ReadScope(f);
-        if (ScopeProblem(scope, 12_000, "rewrite") is { } problem)
+        if (ScopeProblem(scope, 12_000, VerbFor(request.Task)) is { } problem)
         {
             onUpdate(new AiUpdate(seq, "", true, problem, null));
             return;

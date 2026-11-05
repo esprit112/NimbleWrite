@@ -110,7 +110,7 @@ public sealed class PanelTests
     public void TabsFollowTheWebEditorsOrderAndAreUnique() => OnSta(() =>
     {
         var ids = PanelWindow.CreateTabs(new FakeHost()).Select(t => t.Id).ToList();
-        Assert.Equal(new[] { "review", "assistant", "performance" }, ids);
+        Assert.Equal(new[] { "review", "assistant", "paraphrase", "humanize", "translate", "performance" }, ids);
         Assert.Equal(ids.Count, ids.Distinct().Count());
     });
 
@@ -210,6 +210,26 @@ public sealed class PanelTests
         foreach (var tab in panel.Tabs.All)
         {
             panel.ShowTab(tab.Id, snap);
+            Check(tab.Id, "");
+            // The bigger states: a custom voice box, and the full language list unfolded.
+            if (tab is RewriteTab { Modes: { } modes })
+            {
+                modes.Select("custom");
+                Check(tab.Id, "-custom");
+            }
+            if (tab is RewriteTab { To: { } to })
+            {
+                to.Filter("");
+                Check(tab.Id, "-all-languages");
+            }
+        }
+        Assert.Equal("performance", host.LastTab);
+        Assert.Equal(6, panel.Tabs.All.Count);
+        Theme.Apply(false);
+
+        void Check(string id, string state)
+        {
+            var tab = panel.Tabs.Active;
             var bmp = panel.RenderForTest(snap);
             Assert.True(bmp.PixelWidth > 400 && bmp.PixelHeight > 400);
             Assert.Equal(PanelWindow.ContentWidth, panel.ContentHost.ActualWidth, 0);
@@ -217,12 +237,10 @@ public sealed class PanelTests
             foreach (var fe in Descendants(panel.ContentHost).OfType<FrameworkElement>().Where(e => e.ActualWidth > 0))
             {
                 var r = fe.TransformToAncestor(panel.ContentHost).TransformBounds(new Rect(fe.RenderSize));
-                Assert.True(r.Right <= PanelWindow.ContentWidth + 1, $"{tab.Id}: {fe.GetType().Name} \"{(fe as TextBlock)?.Text}\" sticks out to {r.Right:0}");
+                Assert.True(r.Right <= PanelWindow.ContentWidth + 1, $"{id}{state}: {fe.GetType().Name} \"{(fe as TextBlock)?.Text}\" sticks out to {r.Right:0}");
             }
-            if (dir != null) Save(bmp, Path.Combine(dir, $"panel-{tab.Id}-{(dark ? "dark" : "light")}.png"));
+            if (dir != null) Save(bmp, Path.Combine(dir, $"panel-{id}{state}-{(dark ? "dark" : "light")}.png"));
         }
-        Assert.Equal("performance", host.LastTab);
-        Theme.Apply(false);
     });
 
     // ---- helpers ----
@@ -281,8 +299,11 @@ public sealed class PanelTests
         failure?.Throw();
     }
 
-    sealed class FakeHost : IPanelActions
+    internal sealed class FakeHost : IPanelActions
     {
+        public System.Collections.Generic.List<string> Recent = new() { "French", "Spanish", "German" };
+        public IReadOnlyList<string> RecentLanguages => Recent;
+        public void UsedLanguage(string language) => Recent = Languages.PushRecent(Recent, language);
         public RewriteResult? LastSink;
         public string? Applied;
         public string? LastTab;
