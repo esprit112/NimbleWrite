@@ -5,7 +5,7 @@ namespace NimbleWrite.Desktop.Core;
 
 internal static class UiaIds
 {
-    public const int ValuePattern = 10002, TextPattern = 10014;
+    public const int ValuePattern = 10002, ScrollPattern = 10004, TextPattern = 10014;
     public const int IsReadOnlyAttribute = 40015;
     public const int Edit = 50004, Document = 50030, Text = 50020, Custom = 50025, Group = 50026, Pane = 50033, ComboBox = 50003;
     public const int Menu = 50009, MenuBar = 50010, MenuItem = 50011, TabItem = 50019;

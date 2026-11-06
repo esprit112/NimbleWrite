@@ -7,6 +7,7 @@ import { describeError, errorHandler } from './errors';
 import { loadStore } from './store';
 import { aiRouter } from './routes/ai';
 import { dataRouter } from './routes/data';
+import { serveWebApp } from './static';
 
 const app = express();
 app.disable('x-powered-by');
@@ -40,13 +41,7 @@ app.use('/api', (_req, res) => {
 });
 
 const indexHtml = path.join(config.distDir, 'index.html');
-if (existsSync(indexHtml)) {
-  app.use(express.static(config.distDir, { index: false, maxAge: '1h' }));
-  app.use((req, res, next) => {
-    if (req.method !== 'GET') return next();
-    res.sendFile(indexHtml);
-  });
-}
+serveWebApp(app, config.distDir);
 
 app.use(errorHandler);
 

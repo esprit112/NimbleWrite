@@ -97,6 +97,43 @@ public sealed class HotkeyListener : IDisposable
 }
 
 /// <summary>
+/// Tells the engine the moment focus moves or another window comes to the front (Windows focus events, delivered on
+/// this thread's message loop), so the engine can look at the new field straight away even while it's polling slowly.
+/// Only the fact that something changed is passed on: no window titles, no text.
+/// </summary>
+internal sealed class FocusWatcher : IDisposable
+{
+    const uint EVENT_SYSTEM_FOREGROUND = 0x0003, EVENT_OBJECT_FOCUS = 0x8005;
+    const uint WINEVENT_OUTOFCONTEXT = 0x0000, WINEVENT_SKIPOWNPROCESS = 0x0002;
+
+    delegate void WinEventProc(IntPtr hook, uint ev, IntPtr hwnd, int idObject, int idChild, uint thread, uint time);
+
+    [DllImport("user32.dll")]
+    static extern IntPtr SetWinEventHook(uint eventMin, uint eventMax, IntPtr module, WinEventProc proc, uint process, uint thread, uint flags);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    static extern bool UnhookWinEvent(IntPtr hook);
+
+    readonly WinEventProc proc; // kept alive for as long as the hooks are
+    readonly IntPtr foreground, focus;
+
+    public FocusWatcher(Action changed)
+    {
+        proc = (_, _, _, _, _, _, _) => changed();
+        foreground = SetWinEventHook(EVENT_SYSTEM_FOREGROUND, EVENT_SYSTEM_FOREGROUND, IntPtr.Zero, proc, 0, 0, WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS);
+        focus = SetWinEventHook(EVENT_OBJECT_FOCUS, EVENT_OBJECT_FOCUS, IntPtr.Zero, proc, 0, 0, WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS);
+        if (foreground == IntPtr.Zero || focus == IntPtr.Zero) Log.Info("focus events unavailable; NimbleWrite notices new text boxes on its next look instead");
+    }
+
+    public void Dispose()
+    {
+        if (foreground != IntPtr.Zero) UnhookWinEvent(foreground);
+        if (focus != IntPtr.Zero) UnhookWinEvent(focus);
+    }
+}
+
+/// <summary>
 /// Clipboard work for the engine, done on the UI thread. Used only to paste multi-line replacements; the previous
 /// clipboard contents are put back afterwards, and our text is kept out of clipboard history.
 /// </summary>

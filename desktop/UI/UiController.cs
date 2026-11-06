@@ -43,6 +43,7 @@ internal sealed class UiController : IPanelActions
         };
         badge.Clicked += TogglePanel;
         hoverTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(50), DispatcherPriority.Input, (_, _) => OnHover(), dispatcher);
+        hoverTimer.Stop(); // runs only while there are underlines to hover over or a card to close (UpdateHoverTimer)
     }
 
     public void Bind(Engine e, Tray t, ApiClient client)
@@ -50,7 +51,23 @@ internal sealed class UiController : IPanelActions
         engine = e;
         tray = t;
         api = client;
-        hoverTimer.Start();
+        UpdateHoverTimer();
+    }
+
+    /// <summary>
+    /// Watch the pointer (20 times a second) only while it matters: underlines are on screen, or a suggestion card is
+    /// open and should close when the pointer leaves it. Otherwise the UI thread sleeps.
+    /// </summary>
+    void UpdateHoverTimer()
+    {
+        bool needed = engine != null && state?.Target != null && (geo?.Underlines.Count > 0 || (card.IsVisible && !card.IsToast));
+        if (needed == hoverTimer.IsEnabled) return;
+        if (needed) hoverTimer.Start();
+        else
+        {
+            hoverTimer.Stop();
+            hoverCandidate = null;
+        }
     }
 
     public void OnState(EngineSnapshot s)
@@ -77,6 +94,7 @@ internal sealed class UiController : IPanelActions
             overlay.Hide();
             badge.Hide();
             if (card.IsVisible && !card.IsToast) HideCard();
+            UpdateHoverTimer();
             return;
         }
         overlay.Render(g, highlight);
@@ -88,6 +106,7 @@ internal sealed class UiController : IPanelActions
             panel.Reposition(g.Field);
             panel.BringToFront();
         }
+        UpdateHoverTimer();
     }
 
     public void OnNotice(string text)
@@ -155,6 +174,7 @@ internal sealed class UiController : IPanelActions
         if (issue == null || line == null || line.Rects.Length == 0) return;
         card.ShowIssue(issue, line.Rects[0]);
         SetHighlight(id);
+        UpdateHoverTimer();
     }
 
     void HideCard()
@@ -162,6 +182,7 @@ internal sealed class UiController : IPanelActions
         card.Close2();
         leftCardAt = null;
         SetHighlight(null);
+        UpdateHoverTimer();
     }
 
     public void SetHighlight(string? id)

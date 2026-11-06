@@ -13,6 +13,7 @@ import { aiDetectPrompt, checkSystemPrompt, claimsPrompt, cleanImagePrompt, grad
 import { getSettings, recordCheck } from '../store';
 import { heuristicSignals } from '../detect';
 import { assistFingerprint, mergeAssistIssues } from '../assist';
+import { checkKey, withCheckCache } from '../checkCache';
 import { dialectMap } from '../../shared/rules';
 import { MAX_INSTRUCTIONS } from '../../shared/tune';
 import { parseTuneResult, tuneSystemPrompt } from '../tune';
@@ -48,6 +49,12 @@ aiRouter.post('/check', async (req: Request, res: Response) => {
 export async function checkParagraphs(paragraphs: CheckParagraph[], options: CheckOptions, signal?: AbortSignal): Promise<CheckResponse> {
   const settings = await getSettings();
   const model = settings.models.check;
+  // Paragraphs already checked with the same model and options are answered from memory; only the rest go to NVIDIA.
+  const { results, model: used, ms } = await withCheckCache(paragraphs, (p) => checkKey(model, options, p.text), (misses) => askModel(misses, options, model, signal));
+  return { results, model: used || model, ms };
+}
+
+async function askModel(paragraphs: CheckParagraph[], options: CheckOptions, model: string, signal?: AbortSignal): Promise<CheckResponse> {
   const totalWords = paragraphs.reduce((s, p) => s + countWords(p.text), 0);
   const out = await chat({
     model,

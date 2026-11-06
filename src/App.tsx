@@ -1,13 +1,22 @@
 // App shell: loads settings + server health, applies the theme and routes between pages.
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import type { HealthResponse } from '../shared/types';
 import { api } from './api';
 import { useRoute } from './router';
 import { useSettings } from './store';
 import { Button, Logo, Spinner, Toaster } from './components/ui';
-import { HomePage } from './pages/HomePage';
-import { SettingsPage } from './pages/SettingsPage';
-import { EditorPage } from './editor/EditorPage';
+
+// Each page loads when it's first opened: "Open in NimbleWrite" goes straight to a document without first
+// downloading the settings page, and the document list doesn't wait for the whole editor.
+const HomePage = lazy(() => import('./pages/HomePage').then((m) => ({ default: m.HomePage })));
+const SettingsPage = lazy(() => import('./pages/SettingsPage').then((m) => ({ default: m.SettingsPage })));
+const EditorPage = lazy(() => import('./editor/EditorPage').then((m) => ({ default: m.EditorPage })));
+
+const pageLoading = (
+  <div className="flex h-full items-center justify-center">
+    <Spinner className="size-6" />
+  </div>
+);
 
 function useTheme(theme: 'light' | 'dark' | 'system' | undefined) {
   useEffect(() => {
@@ -53,7 +62,9 @@ export default function App() {
 
   return (
     <>
-      {route.name === 'doc' ? <EditorPage id={route.id} health={health} /> : route.name === 'settings' ? <SettingsPage /> : <HomePage trash={route.trash} health={health} />}
+      <Suspense fallback={pageLoading}>
+        {route.name === 'doc' ? <EditorPage id={route.id} health={health} /> : route.name === 'settings' ? <SettingsPage /> : <HomePage trash={route.trash} health={health} />}
+      </Suspense>
       <Toaster />
     </>
   );

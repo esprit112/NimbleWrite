@@ -125,6 +125,7 @@ internal sealed class DesktopApp : Application, ISettingsHost
     UiController ui = null!;
     Tray tray = null!;
     HotkeyListener? hotkey;
+    FocusWatcher? focusWatcher;
     KeyWindow? keyWindow;
     SettingsWindow? settingsWindow;
     AboutWindow? aboutWindow;
@@ -181,6 +182,7 @@ internal sealed class DesktopApp : Application, ISettingsHost
                 : $"shortcut \"{config.Hotkey}\" in desktop.json isn't valid");
         }
         engine.Start();
+        focusWatcher = new FocusWatcher(engine.Wake);
         ListenForSignals();
         if (openSettingsAtStart) ShowSettings();
         _ = ConnectAsync();
@@ -426,6 +428,7 @@ internal sealed class DesktopApp : Application, ISettingsHost
         keyWindow?.Close();
         settingsWindow?.Close();
         aboutWindow?.Close();
+        focusWatcher?.Dispose();
         engine.Dispose();
         hotkey?.Dispose();
         tray.Dispose();

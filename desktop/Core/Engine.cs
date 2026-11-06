@@ -29,7 +29,6 @@ public interface IClipboardBridge
 /// </summary>
 public sealed partial class Engine : IDisposable
 {
-    static readonly TimeSpan TickEvery = TimeSpan.FromMilliseconds(120);
     static readonly TimeSpan Debounce = TimeSpan.FromMilliseconds(650);
 
     /// <summary>Fields we never check: browser address bars.</summary>
@@ -82,6 +81,12 @@ public sealed partial class Engine : IDisposable
     DateTime diagAt = DateTime.MinValue;
     string lastApply = "";
     readonly ShortcutFocusGuard shortcut = new();
+    /// <summary>How often to look at the field: fast while things change, slower when they don't (see <see cref="AdaptiveTicker"/>).</summary>
+    readonly AdaptiveTicker ticker = new(DateTime.UtcNow);
+    /// <summary>The field's scroll position, so underlines are re-measured when it scrolls rather than on a timer.</summary>
+    IUIAutomationScrollPattern? scroll;
+    bool scrollLooked;
+    string scrollSig = "";
 
     /// <summary>Process name and display name of the app that last had keyboard focus (for "Turn off in …").</summary>
     public volatile string? LastProcess;
@@ -102,6 +107,13 @@ public sealed partial class Engine : IDisposable
     }
 
     public void Start() => thread.Start();
+
+    /// <summary>Focus or the window in front just changed (told by the UI thread): look at it now, not on the next slow tick.</summary>
+    public void Wake()
+    {
+        var at = DateTime.UtcNow;
+        Post(() => ticker.Activity(at));
+    }
 
     /// <summary>Our shortcut was just pressed: undo the focus jump its Alt can cause (see <see cref="ShortcutFocusGuard"/>).</summary>
     public void ShortcutPressed()
@@ -146,6 +158,7 @@ public sealed partial class Engine : IDisposable
         Log.Info("engine started");
         while (!life.IsCancellationRequested)
         {
+            var tickAt = DateTime.UtcNow;
             try
             {
                 TickOnce();
@@ -160,10 +173,11 @@ public sealed partial class Engine : IDisposable
                 Log.Error("engine tick", e);
                 Detach();
             }
-            var until = DateTime.UtcNow + TickEvery;
             while (!life.IsCancellationRequested)
             {
-                var left = until - DateTime.UtcNow;
+                // Recomputed after every command: a command (a click in the panel, a check result) is activity, so the
+                // next look comes 120 ms after the last one instead of up to 500 ms.
+                var left = ticker.NextTick(tickAt, DateTime.UtcNow) - DateTime.UtcNow;
                 if (left <= TimeSpan.Zero) break;
                 Action? cmd;
                 try
@@ -186,6 +200,7 @@ public sealed partial class Engine : IDisposable
                 {
                     Log.Error("engine command", e);
                 }
+                ticker.Activity(DateTime.UtcNow);
             }
         }
     }
@@ -300,6 +315,8 @@ public sealed partial class Engine : IDisposable
         ranges.Clear();
         lastField = Rect.Empty;
         geometryKey = -1;
+        ForgetScroll();
+        ticker.Activity(DateTime.UtcNow);
         freshAttach = true;
         if (state is CheckState.TooLong or CheckState.Private) state = CheckState.Idle;
         Log.Info($"attached to {f.Info.ProcessName} ({f.Kind})");
@@ -414,6 +431,7 @@ public sealed partial class Engine : IDisposable
         string before = text;
         text = now;
         textVersion++;
+        ticker.Activity(DateTime.UtcNow);
         ranges.Clear();
         changedAt = freshAttach ? DateTime.MinValue : DateTime.UtcNow;
         freshAttach = false;
@@ -638,6 +656,7 @@ public sealed partial class Engine : IDisposable
         {
             bool first = lastField.IsEmpty;
             lastField = visible;
+            ticker.Activity(DateTime.UtcNow);
             if (!first)
             {
                 // The field is moving or resizing: hide underlines until it settles, rather than drawing them in the wrong place.
@@ -647,7 +666,18 @@ public sealed partial class Engine : IDisposable
             }
         }
         long key = HashCode.Combine(textVersion, issuesVersion, config.ShowUnderlines);
-        if (key == geometryKey && DateTime.UtcNow - geometryAt < TimeSpan.FromMilliseconds(400)) return;
+        bool measuring = f.Text != null && config.ShowUnderlines && issues.Count > 0;
+        // Re-measure when the text, the suggestions or the scroll position change. Fields that report their scroll
+        // position are also re-measured every 2 s (zoom, reflow); fields that don't are re-measured every 400 ms as before.
+        string scrolled = measuring ? ScrollPosition(f) : "";
+        bool moved = !string.Equals(scrolled, scrollSig, StringComparison.Ordinal);
+        if (moved)
+        {
+            scrollSig = scrolled;
+            ticker.Activity(DateTime.UtcNow);
+        }
+        var every = scroll != null ? TimeSpan.FromSeconds(2) : TimeSpan.FromMilliseconds(400);
+        if (key == geometryKey && !moved && DateTime.UtcNow - geometryAt < every) return;
         geometryKey = key;
         geometryAt = DateTime.UtcNow;
         var lines = new List<Underline>();
@@ -689,6 +719,40 @@ public sealed partial class Engine : IDisposable
             }
         }
         Publish(new GeometrySnapshot(visible, lines));
+    }
+
+    /// <summary>The field's scroll position as text, or "?" if it doesn't say (then the 400 ms re-measure covers scrolling).</summary>
+    string ScrollPosition(Field f)
+    {
+        if (!scrollLooked)
+        {
+            scrollLooked = true;
+            try
+            {
+                scroll = f.Element.GetCurrentPattern(UiaIds.ScrollPattern) as IUIAutomationScrollPattern;
+            }
+            catch (COMException)
+            {
+                scroll = null;
+            }
+        }
+        if (scroll == null) return "?";
+        try
+        {
+            return $"{scroll.CurrentVerticalScrollPercent:0.###},{scroll.CurrentHorizontalScrollPercent:0.###}";
+        }
+        catch (COMException)
+        {
+            scroll = null;
+            return "?";
+        }
+    }
+
+    void ForgetScroll()
+    {
+        scroll = null;
+        scrollLooked = false;
+        scrollSig = "";
     }
 
     /// <summary>
@@ -790,6 +854,8 @@ public sealed partial class Engine : IDisposable
     {
         if (field == null) return;
         field = null;
+        ForgetScroll();
+        ticker.Activity(DateTime.UtcNow);
         text = "";
         textVersion++;
         issues = new List<PlacedIssue>();
