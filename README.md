@@ -6,6 +6,8 @@ An AI writing assistant that runs on **NVIDIA NIM** models. It checks your writi
 
 ![NimbleWrite editor: underlined suggestions, an inline correction card, and the Review suggestions sidebar with category tabs and Accept all](docs/editor.png)
 
+On Windows, the [desktop companion](#desktop-companion-windows) brings the same checks and every tool to the text box you're typing in, in any app.
+
 ## Download
 
 **[Download the Windows installer](https://github.com/esprit112/NimbleWrite/releases/latest)** (Windows 10/11, 64-bit). It installs the desktop companion and the editor, with everything they need included, and asks for your own NVIDIA API key on first run (you can create one at [build.nvidia.com](https://build.nvidia.com)). The installer isn't code-signed yet, so Windows SmartScreen may say "Windows protected your PC": choose **More info → Run anyway**. Each release lists the installer's SHA-256 so you can check the download.
@@ -76,6 +78,19 @@ Browser (React 19 + TipTap 3)                         Server (Express 5, port 43
 ## Desktop companion (Windows)
 
 `desktop/` is a small Windows app that brings NimbleWrite's checks to the text box you're typing in, in any app: Chrome, Edge, Electron apps, Notepad, WPF, WinForms and Win32 fields. It's a thin client. Checking and rewriting go through the same server (`/api/ai/assist`, `/api/ai/write`, `/api/ai/tone`), so it uses your saved settings, dialect and dictionary.
+
+![The desktop companion in an Edge window: suggestions underlined in the text, a badge with the count, and the assistant beside it on Review suggestions, with Fix all and Accept, Dismiss and Add to dictionary on each card](docs/desktop-review.png)
+
+<details>
+<summary>More of the assistant: Paraphraser, AI Detector and Settings</summary>
+
+![Paraphraser tab in formal mode: the selected sentence rewritten, with Replace, Copy and Discard](docs/desktop-paraphrase.png)
+
+![AI Detector tab: the share of the text that reads as AI-generated, the statistical signals and a card for each passage](docs/desktop-detector.png)
+
+![NimbleWrite Settings on the Writing section: English variant and suggestion kinds, shared with the editor](docs/desktop-settings.png)
+
+</details>
 
 ```bash
 cd desktop
