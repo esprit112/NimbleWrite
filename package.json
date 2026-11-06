@@ -1,7 +1,7 @@
 {
   "name": "nimblewrite",
   "private": true,
-  "version": "1.0.8",
+  "version": "1.1.0",
   "license": "MIT",
   "description": "NimbleWrite: an AI writing assistant powered by NVIDIA NIM models.",
   "type": "module",
