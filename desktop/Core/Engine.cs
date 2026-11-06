@@ -212,7 +212,7 @@ public sealed partial class Engine : IDisposable
             Detach();
             return;
         }
-        IntPtr fg = Native.GetForegroundWindow();
+        IntPtr fg = Native.ForegroundTopLevel();
         if (fg == IntPtr.Zero) return;
         if (Native.ProcessIdOf(fg) == ownPid) return; // our tray menu has the foreground: keep everything as it is
         if (Native.IsIconic(fg))
@@ -273,7 +273,7 @@ public sealed partial class Engine : IDisposable
                 }
                 return true;
             case FocusJump.Escape:
-                if (Native.GetForegroundWindow() != f.Info.Hwnd) return false;
+                if (Native.ForegroundTopLevel() != f.Info.Hwnd) return false;
                 Log.Info("focus stayed in the app's menu; pressing Escape to close it");
                 InputSim.Press(InputSim.VK_ESCAPE);
                 return true;

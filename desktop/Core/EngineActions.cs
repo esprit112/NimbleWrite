@@ -68,7 +68,7 @@ public sealed partial class Engine
     public void Refocus() => Post(() =>
     {
         var f = field;
-        if (f == null || Native.GetForegroundWindow() != f.Info.Hwnd) return;
+        if (f == null || Native.ForegroundTopLevel() != f.Info.Hwnd) return;
         try
         {
             f.Element.SetFocus();
@@ -336,7 +336,7 @@ public sealed partial class Engine
 
     bool StillFocused(Field f)
     {
-        if (Native.GetForegroundWindow() != f.Info.Hwnd) return false;
+        if (Native.ForegroundTopLevel() != f.Info.Hwnd) return false;
         try
         {
             var el = uia.GetFocusedElement();

@@ -52,6 +52,29 @@ internal class NoActivateWindow : Window
         {
             if (!IsVisible && Typing) EndTyping(restore: true);
         };
+        // Outside typing mode this window must never keep the keyboard. A real click can't activate it
+        // (WM_MOUSEACTIVATE → MA_NOACTIVATE), but UI Automation can: pressing a button through Invoke, as Narrator's
+        // default action and Voice Access do, brings the window to the front, and the user's text box loses focus, so
+        // Accept or Replace would be refused. Hand the keyboard straight back before the button's action runs.
+        Activated += (_, _) =>
+        {
+            if (!Typing) Dispatcher.BeginInvoke(() => HandBack(retry: true), System.Windows.Threading.DispatcherPriority.Send);
+        };
+    }
+
+    /// <summary>The keyboard went back to <see cref="TypingReturnTo"/> after this window was activated outside typing mode.</summary>
+    public event Action? KeyboardReturned;
+
+    void HandBack(bool retry)
+    {
+        // The window the user was writing in, exactly as the engine recorded it (its checks compare against it).
+        if (Typing || Native.ForegroundTopLevel() != Handle) return;
+        if (TypingReturnTo?.Invoke() is not { } target || target == IntPtr.Zero || target == Handle) return;
+        Native.SetForegroundWindow(target);
+        if (Native.ForegroundTopLevel() == target) KeyboardReturned?.Invoke();
+        // Activation can still be settling when this first runs; try once more when the dispatcher is idle.
+        else if (retry) Dispatcher.BeginInvoke(() => HandBack(retry: false), System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+        else Log.Info($"couldn't give the keyboard back to the app after the assistant was activated (in front: {(Native.ForegroundTopLevel() == Handle ? "the assistant" : "another window")})");
     }
 
     void OnSourceInitialized(object? sender, EventArgs e)
@@ -110,7 +133,7 @@ internal class NoActivateWindow : Window
         if (restore && TypingReturnTo?.Invoke() is { } target && target != IntPtr.Zero)
         {
             Native.SetForegroundWindow(target);
-            back = Native.GetForegroundWindow() == target;
+            back = Native.ForegroundTopLevel() == target;
             if (!back) Log.Info("typing mode: couldn't give the keyboard back to the app");
         }
         Keyboard.ClearFocus();

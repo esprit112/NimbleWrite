@@ -57,6 +57,21 @@ internal static class Native
     [DllImport("user32.dll")] public static extern IntPtr GetAncestor(IntPtr hWnd, uint flags);
     public const uint GA_ROOT = 2;
 
+    /// <summary>The top-level window of <paramref name="hwnd"/> (itself if it is one); zero for zero.</summary>
+    public static IntPtr TopLevel(IntPtr hwnd)
+    {
+        if (hwnd == IntPtr.Zero) return IntPtr.Zero;
+        var root = GetAncestor(hwnd, GA_ROOT);
+        return root != IntPtr.Zero ? root : hwnd;
+    }
+
+    /// <summary>
+    /// The foreground window as a top-level window. UI Automation's SetFocus on a Win32 edit inside a form leaves Windows
+    /// reporting the edit's child hwnd as the foreground window; comparing top-level windows keeps that from looking like
+    /// the user moved to another app.
+    /// </summary>
+    public static IntPtr ForegroundTopLevel() => TopLevel(GetForegroundWindow());
+
     public static string WindowText(IntPtr hwnd)
     {
         var sb = new StringBuilder(512);

@@ -41,6 +41,11 @@ internal sealed class UiController : IPanelActions
         {
             if (back) engine.Refocus();
         };
+        // Pressed through UI Automation (Narrator, Voice Access), these windows get activated; they hand the keyboard
+        // back to the text box, and the engine puts the focus back in the field.
+        card.TypingReturnTo = panel.TypingReturnTo;
+        panel.KeyboardReturned += () => engine.Refocus();
+        card.KeyboardReturned += () => engine.Refocus();
         badge.Clicked += TogglePanel;
         hoverTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(50), DispatcherPriority.Input, (_, _) => OnHover(), dispatcher);
         hoverTimer.Stop(); // runs only while there are underlines to hover over or a card to close (UpdateHoverTimer)
