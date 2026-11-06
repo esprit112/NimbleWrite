@@ -22,13 +22,17 @@ internal sealed class Tray : IDisposable
     readonly Action? connect;
     readonly Func<bool> hasKey;
     readonly Func<bool> shortcutWorks;
+    readonly Action? settings;
+    readonly Action? about;
     EngineSnapshot? last;
     TrayLook look = (TrayLook)(-1);
     SD.Icon? current;
 
     /// <param name="connect">Opens "Connect to NVIDIA" (installed app only; null hides the menu item).</param>
     /// <param name="shortcutWorks">False when Windows refused the assistant shortcut (taken by another app, or not valid).</param>
-    public Tray(DesktopConfig config, Engine engine, string editorUrl, Action quit, Action? connect = null, Func<bool>? hasKey = null, Func<bool>? shortcutWorks = null)
+    /// <param name="settings">Opens the Settings window; <paramref name="about"/> the About window.</param>
+    public Tray(DesktopConfig config, Engine engine, string editorUrl, Action quit, Action? connect = null, Func<bool>? hasKey = null, Func<bool>? shortcutWorks = null,
+        Action? settings = null, Action? about = null)
     {
         this.config = config;
         this.engine = engine;
@@ -37,6 +41,8 @@ internal sealed class Tray : IDisposable
         this.connect = connect;
         this.hasKey = hasKey ?? (() => false);
         this.shortcutWorks = shortcutWorks ?? (() => true);
+        this.settings = settings;
+        this.about = about;
         menu.Opening += (_, _) => Rebuild();
         icon = new WF.NotifyIcon { Text = "NimbleWrite", ContextMenuStrip = menu, Visible = true };
         icon.MouseUp += (_, e) =>
@@ -140,6 +146,8 @@ internal sealed class Tray : IDisposable
         if (connect != null) menu.Items.Add(Item(hasKey() ? "NVIDIA API key…" : "Connect to NVIDIA…", connect, "Your own NVIDIA API key turns on AI suggestions"));
         menu.Items.Add(new WF.ToolStripMenuItem(ShortcutLabel(config.Hotkey, shortcutWorks())) { Enabled = false });
         menu.Items.Add(new WF.ToolStripSeparator());
+        if (settings != null) menu.Items.Add(Item("Settings…", settings));
+        if (about != null) menu.Items.Add(Item("About NimbleWrite", about));
         menu.Items.Add(Item("Quit NimbleWrite", quit));
     }
 

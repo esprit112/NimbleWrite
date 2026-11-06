@@ -21,7 +21,15 @@ internal static class Theme
     public static Brush BrandText { get; private set; } = Brushes.Green;
     public static Brush OnBrand { get; } = Brushes.White;
 
-    public static void Load() => Apply(ReadDark());
+    /// <summary>Pick the palette: <paramref name="preference"/> is "light", "dark" or "system" (follow Windows).</summary>
+    public static void Load(string preference = "system") => Apply(ResolveDark(preference, ReadDark()));
+
+    internal static bool ResolveDark(string preference, bool windowsDark) => preference switch
+    {
+        "dark" => true,
+        "light" => false,
+        _ => windowsDark,
+    };
 
     /// <summary>Switch palettes. Elements pick up brushes when they're built, so build windows after calling this.</summary>
     internal static void Apply(bool dark)

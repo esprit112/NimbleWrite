@@ -15,10 +15,12 @@ internal static class Program
     const string ShowSignal = @"Local\NimbleWrite.Desktop.Show";
     const string EditorSignal = @"Local\NimbleWrite.Desktop.Editor";
     const string QuitSignal = @"Local\NimbleWrite.Desktop.Quit";
+    const string SettingsSignal = @"Local\NimbleWrite.Desktop.Settings";
 
     /// <summary>
     /// NimbleWrite.exe            start (or, if running, say so)
     /// NimbleWrite.exe --editor   open the web editor (starting NimbleWrite first if needed)
+    /// NimbleWrite.exe --settings open the Settings window (starting NimbleWrite first if needed)
     /// NimbleWrite.exe --quit     ask the running copy to quit and wait until it has (used by the installer)
     /// NimbleWrite.exe --start-with-windows on|off   set "start with Windows" for this user and exit (used by the installer)
     /// NimbleWrite.exe --diag     write a live state snapshot (no text) for troubleshooting
@@ -29,16 +31,21 @@ internal static class Program
         bool Has(string flag) => args.Any(a => a.Equals(flag, StringComparison.OrdinalIgnoreCase));
         int startup = Array.FindIndex(args, a => a.Equals("--start-with-windows", StringComparison.OrdinalIgnoreCase));
         if (startup >= 0) return SetStartup(startup + 1 < args.Length ? args[startup + 1] : "");
-        bool quit = Has("--quit"), editor = Has("--editor");
+        bool quit = Has("--quit"), editor = Has("--editor"), settings = Has("--settings");
         using var mutex = new Mutex(true, MutexName, out bool first);
+        // "Restart now" in Settings starts the new copy before the old one has quit: wait for it to finish.
+        if (!first && Has(DesktopApp.RestartedFlag)) first = WaitUntilGone(mutex) == 0;
         if (!first)
         {
-            Signal(quit ? QuitSignal : editor ? EditorSignal : ShowSignal);
-            return quit ? WaitUntilGone(mutex) : 0;
+            Signal(quit ? QuitSignal : editor ? EditorSignal : settings ? SettingsSignal : ShowSignal);
+            if (!quit) return 0;
+            int gone = WaitUntilGone(mutex);
+            if (gone == 0) mutex.ReleaseMutex();
+            return gone;
         }
         if (quit) return 0; // nothing was running
         bool diag = Has("--diag") || Environment.GetEnvironmentVariable("NIMBLEWRITE_DIAG") == "1";
-        var app = new DesktopApp(diag, editor, ShowSignal, EditorSignal, QuitSignal);
+        var app = new DesktopApp(diag, editor, settings, ShowSignal, EditorSignal, QuitSignal, SettingsSignal);
         int code = app.Run();
         mutex.ReleaseMutex();
         return code;
@@ -79,7 +86,10 @@ internal static class Program
         }
     }
 
-    /// <summary>--quit: 0 once the running copy has exited (its mutex is free), 1 if it's still running after 15 s.</summary>
+    /// <summary>
+    /// 0 once the running copy has exited (its mutex is free), 1 if it's still running after 15 s. On 0 this thread
+    /// owns the mutex: --quit releases it straight away; a restarted copy keeps it.
+    /// </summary>
     static int WaitUntilGone(Mutex mutex)
     {
         bool gone;
@@ -91,20 +101,23 @@ internal static class Program
         {
             gone = true;
         }
-        if (!gone) return 1;
-        mutex.ReleaseMutex();
-        return 0;
+        return gone ? 0 : 1;
     }
 }
 
 /// <summary>Tray app: no main window, just the engine, the overlay windows, the tray icon and the hotkey.</summary>
-internal sealed class DesktopApp : Application
+internal sealed class DesktopApp : Application, ISettingsHost
 {
+    /// <summary>Passed to the new copy by "Restart now", so it waits for this one to quit instead of saying it's already running.</summary>
+    internal const string RestartedFlag = "--restarted";
+
     readonly bool diag;
     readonly bool openEditorAtStart;
+    readonly bool openSettingsAtStart;
     readonly string showSignal;
     readonly string editorSignal;
     readonly string quitSignal;
+    readonly string settingsSignal;
     readonly KeyStore keys = new();
     DesktopConfig config = null!;
     ApiClient api = null!;
@@ -113,15 +126,19 @@ internal sealed class DesktopApp : Application
     Tray tray = null!;
     HotkeyListener? hotkey;
     KeyWindow? keyWindow;
+    SettingsWindow? settingsWindow;
+    AboutWindow? aboutWindow;
     bool quitting;
 
-    public DesktopApp(bool diag, bool openEditor, string showSignal, string editorSignal, string quitSignal)
+    public DesktopApp(bool diag, bool openEditor, bool openSettings, string showSignal, string editorSignal, string quitSignal, string settingsSignal)
     {
         this.diag = diag;
         openEditorAtStart = openEditor;
+        openSettingsAtStart = openSettings;
         this.showSignal = showSignal;
         this.editorSignal = editorSignal;
         this.quitSignal = quitSignal;
+        this.settingsSignal = settingsSignal;
         ShutdownMode = ShutdownMode.OnExplicitShutdown;
     }
 
@@ -140,8 +157,8 @@ internal sealed class DesktopApp : Application
             args.SetObserved();
         };
 
-        Theme.Load();
         config = DesktopConfig.Load();
+        Theme.Load(config.Theme);
         ServerLauncher.Configure(config.ServerUrl, keys.Load);
         api = new ApiClient(config.ServerUrl);
         ui = new UiController(config);
@@ -152,13 +169,11 @@ internal sealed class DesktopApp : Application
             n => d.InvokeAsync(() => ui.OnNotice(n)),
             new ClipboardBridge(d),
             diag);
-        tray = new Tray(config, engine, api.BaseUrl, Quit, ServerLauncher.Packaged ? ShowKeyWindow : null, () => keys.HasKey, () => hotkey?.Registered == true);
+        tray = new Tray(config, engine, api.BaseUrl, Quit, ServerLauncher.Packaged ? ShowKeyWindow : null, () => keys.HasKey, () => hotkey?.Registered == true,
+            () => ShowSettings(), ShowAbout);
         ui.Bind(engine, tray, api);
-        hotkey = new HotkeyListener(config.Hotkey, () =>
-        {
-            engine.ShortcutPressed(); // first, so the engine is ready for the app's reaction to the shortcut's Alt
-            ui.TogglePanel();
-        });
+        ui.ShowSettings = () => ShowSettings("writing");
+        hotkey = NewHotkey(config.Hotkey);
         if (!hotkey.Registered)
         {
             Log.Info(HotkeyListener.TryParse(config.Hotkey, out _, out _)
@@ -167,6 +182,7 @@ internal sealed class DesktopApp : Application
         }
         engine.Start();
         ListenForSignals();
+        if (openSettingsAtStart) ShowSettings();
         _ = ConnectAsync();
         Log.Info($"NimbleWrite desktop started{(ServerLauncher.Packaged ? " (installed copy)" : "")}{(diag ? " (diagnostics on)" : "")}");
     }
@@ -204,6 +220,105 @@ internal sealed class DesktopApp : Application
             }
         }
         return h;
+    }
+
+    HotkeyListener NewHotkey(string spec) => new(spec, () =>
+    {
+        engine.ShortcutPressed(); // first, so the engine is ready for the app's reaction to the shortcut's Alt
+        ui.TogglePanel();
+    });
+
+    void ShowSettings(string? section = null)
+    {
+        if (quitting) return;
+        if (settingsWindow == null)
+        {
+            settingsWindow = new SettingsWindow(this, section);
+            settingsWindow.Closed += (_, _) => settingsWindow = null;
+        }
+        else if (section != null) settingsWindow.ShowSection(section);
+        settingsWindow.ShowInFront();
+    }
+
+    void ShowAbout()
+    {
+        if (quitting) return;
+        if (aboutWindow == null)
+        {
+            aboutWindow = new AboutWindow(this);
+            aboutWindow.Closed += (_, _) => aboutWindow = null;
+        }
+        aboutWindow.ShowInFront();
+    }
+
+    // ---- ISettingsHost: what the Settings and About windows change ----
+
+    DesktopConfig ISettingsHost.Config => config;
+    ApiClient ISettingsHost.Api => api;
+    string ISettingsHost.EditorUrl => api.BaseUrl;
+    bool ISettingsHost.Packaged => ServerLauncher.Packaged;
+    bool ISettingsHost.HasKey => keys.HasKey;
+    bool ISettingsHost.ShortcutRegistered => hotkey?.Registered == true;
+    string? ISettingsHost.LastApp => engine.LastProcess;
+    string? ISettingsHost.LastAppName => engine.LastAppName;
+
+    bool ISettingsHost.StartWithWindows
+    {
+        get => DesktopConfig.StartsWithWindows;
+        set => DesktopConfig.SetStartWithWindows(value);
+    }
+
+    void ISettingsHost.ConfigChanged()
+    {
+        config.Save();
+        tray.Refresh();
+    }
+
+    void ISettingsHost.SetAppDisabled(string process, bool off) => config.SetAppDisabled(process, off);
+
+    void ISettingsHost.ResetApps() => config.ResetDisabledApps();
+
+    /// <summary>Take the new shortcut only if Windows gives it to us; until then the old one keeps working.</summary>
+    bool ISettingsHost.TryShortcut(string spec)
+    {
+        var next = NewHotkey(spec);
+        if (!next.Registered)
+        {
+            next.Dispose();
+            Log.Info($"shortcut {spec} is taken by another app; keeping {config.Hotkey}");
+            return false;
+        }
+        hotkey?.Dispose();
+        hotkey = next;
+        config.Hotkey = spec;
+        config.Save();
+        Log.Info($"shortcut changed to {spec}");
+        return true;
+    }
+
+    void ISettingsHost.ShowKeyWindow()
+    {
+        if (ServerLauncher.Packaged) ShowKeyWindow();
+    }
+
+    void ISettingsHost.OpenUrl(string url) => AppWindow.Open(url);
+
+    /// <summary>Start a new copy (which waits until this one has gone), then quit.</summary>
+    void ISettingsHost.Restart()
+    {
+        if (Environment.ProcessPath is not { } exe) return;
+        try
+        {
+            Process.Start(new ProcessStartInfo(exe, RestartedFlag) { UseShellExecute = false });
+        }
+        catch (Exception e)
+        {
+            Log.Error("restart", e);
+            tray.Balloon("NimbleWrite couldn't restart", "Quit NimbleWrite from the tray icon and open it again.");
+            return;
+        }
+        Log.Info("restarting");
+        Quit();
     }
 
     void ShowKeyWindow()
@@ -277,6 +392,7 @@ internal sealed class DesktopApp : Application
             new EventWaitHandle(false, EventResetMode.AutoReset, showSignal),
             new EventWaitHandle(false, EventResetMode.AutoReset, editorSignal),
             new EventWaitHandle(false, EventResetMode.AutoReset, quitSignal),
+            new EventWaitHandle(false, EventResetMode.AutoReset, settingsSignal),
         };
         var t = new Thread(() =>
         {
@@ -289,6 +405,9 @@ internal sealed class DesktopApp : Application
                         break;
                     case 1:
                         Dispatcher.InvokeAsync(() => _ = OpenEditorWhenReadyAsync());
+                        break;
+                    case 3:
+                        Dispatcher.InvokeAsync(() => ShowSettings());
                         break;
                     default:
                         Dispatcher.InvokeAsync(Quit);
@@ -305,6 +424,8 @@ internal sealed class DesktopApp : Application
         quitting = true;
         Log.Info("quitting");
         keyWindow?.Close();
+        settingsWindow?.Close();
+        aboutWindow?.Close();
         engine.Dispose();
         hotkey?.Dispose();
         tray.Dispose();

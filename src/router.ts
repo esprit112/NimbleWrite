@@ -1,13 +1,17 @@
-// Minimal hash router: #/ (documents), #/trash, #/doc/<id>, #/settings
+// Minimal hash router: #/ (documents), #/trash, #/doc/<id>, #/settings, #/settings/<section>
 import { useEffect, useState } from 'react';
 
-export type Route = { name: 'home'; trash: boolean } | { name: 'doc'; id: string } | { name: 'settings' };
+export type Route = { name: 'home'; trash: boolean } | { name: 'doc'; id: string } | { name: 'settings'; section?: string };
 
 export function parseRoute(hash: string): Route {
   const path = hash.replace(/^#/, '') || '/';
   const doc = /^\/doc\/([a-zA-Z0-9-]+)/.exec(path);
   if (doc) return { name: 'doc', id: doc[1] };
-  if (path.startsWith('/settings')) return { name: 'settings' };
+  if (path.startsWith('/settings')) {
+    // The desktop app links to a section, e.g. #/settings/models; the page checks it's a real one.
+    const section = /^\/settings\/([a-z-]+)(?:\/|$)/.exec(path)?.[1];
+    return section ? { name: 'settings', section } : { name: 'settings' };
+  }
   return { name: 'home', trash: path.startsWith('/trash') };
 }
 

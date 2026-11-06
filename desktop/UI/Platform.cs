@@ -70,6 +70,25 @@ public sealed class HotkeyListener : IDisposable
         return vk != 0 && mods != 0;
     }
 
+    /// <summary>
+    /// The shortcut for a key press, written the way desktop.json stores it ("Ctrl+Alt+N"), or null while only
+    /// modifiers are held, or when it would get in the way of typing (no Ctrl, Alt or Win: N or Shift+A alone).
+    /// </summary>
+    internal static string? Format(ModifierKeys mods, Key key)
+    {
+        if (key is Key.None or Key.System or Key.ImeProcessed or Key.DeadCharProcessed or Key.LeftCtrl or Key.RightCtrl or Key.LeftAlt
+            or Key.RightAlt or Key.LeftShift or Key.RightShift or Key.LWin or Key.RWin) return null;
+        if ((mods & (ModifierKeys.Control | ModifierKeys.Alt | ModifierKeys.Windows)) == 0) return null;
+        var parts = new System.Collections.Generic.List<string>();
+        if (mods.HasFlag(ModifierKeys.Control)) parts.Add("Ctrl");
+        if (mods.HasFlag(ModifierKeys.Alt)) parts.Add("Alt");
+        if (mods.HasFlag(ModifierKeys.Shift)) parts.Add("Shift");
+        if (mods.HasFlag(ModifierKeys.Windows)) parts.Add("Win");
+        parts.Add(key is >= Key.D0 and <= Key.D9 ? ((char)('0' + (key - Key.D0))).ToString() : key.ToString());
+        string spec = string.Join("+", parts);
+        return TryParse(spec, out _, out _) ? spec : null;
+    }
+
     public void Dispose()
     {
         Native.UnregisterHotKey(source.Handle, Id);

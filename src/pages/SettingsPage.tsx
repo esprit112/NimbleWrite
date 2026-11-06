@@ -7,7 +7,7 @@ import { CATEGORIES, DIALECTS } from '../../shared/types';
 import { CATEGORY_META, categoryForType, titleForType } from '../../shared/meta';
 import { MAX_INSTRUCTIONS } from '../../shared/tune';
 import { api } from '../api';
-import { navigate } from '../router';
+import { navigate, useRoute } from '../router';
 import { toast, useSettings } from '../store';
 import { Button, cx, IconButton, Logo, Spinner, Toggle } from '../components/ui';
 import { GoalsPicker } from '../editor/Dialogs';
@@ -25,10 +25,17 @@ const SECTIONS = [
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 
+type SectionId = (typeof SECTIONS)[number]['id'];
+const isSection = (id: string | undefined): id is SectionId => SECTIONS.some((s) => s.id === id);
+
 export function SettingsPage() {
   const settings = useSettings((s) => s.settings);
   const update = useSettings((s) => s.update);
-  const [section, setSection] = useState<(typeof SECTIONS)[number]['id']>('language');
+  // The section lives in the address (#/settings/models), so the desktop app can link straight to it.
+  const route = useRoute();
+  const wanted = route.name === 'settings' ? route.section : undefined;
+  const section: SectionId = isSection(wanted) ? wanted : 'language';
+  const setSection = (id: SectionId) => navigate(`/settings/${id}`);
   if (!settings) return <div className="flex h-full items-center justify-center"><Spinner className="size-6" /></div>;
   return (
     <div className="flex h-full flex-col">
@@ -51,7 +58,7 @@ export function SettingsPage() {
         </nav>
         <main className="nw-scroll min-w-0 flex-1 overflow-y-auto">
           <div className="mx-auto max-w-3xl px-5 py-6 sm:px-8">
-            <select value={section} onChange={(e) => setSection(e.target.value as typeof section)} className={cx(inputClass, 'mb-5 sm:hidden')}>
+            <select value={section} onChange={(e) => setSection(e.target.value as SectionId)} className={cx(inputClass, 'mb-5 sm:hidden')}>
               {SECTIONS.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
             </select>
             {section === 'language' && <LanguageSection settings={settings} update={update} />}

@@ -54,7 +54,7 @@ internal sealed class PanelWindow : NoActivateWindow
         close.VerticalAlignment = VerticalAlignment.Center;
         DockPanel.SetDock(close, Dock.Right);
         header.Children.Add(close);
-        var gear = UiKit.IconButton(Icons.Settings, host.OpenWritingSettings, "Writing settings", 14);
+        var gear = UiKit.IconButton(Icons.Settings, host.OpenWritingSettings, "Settings", 14);
         gear.VerticalAlignment = VerticalAlignment.Center;
         DockPanel.SetDock(gear, Dock.Right);
         header.Children.Add(gear);

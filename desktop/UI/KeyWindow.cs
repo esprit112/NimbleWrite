@@ -24,7 +24,7 @@ internal enum KeyChange { Saved, Removed }
 /// normal window, because it needs the keyboard. The local server tries the key with NVIDIA first; then it's saved
 /// encrypted (DPAPI) and the server restarts with it.
 /// </summary>
-internal sealed class KeyWindow : Window
+internal sealed class KeyWindow : AppWindow
 {
     readonly ApiClient api;
     readonly KeyStore keys;
@@ -48,14 +48,7 @@ internal sealed class KeyWindow : Window
         Width = 500;
         SizeToContent = SizeToContent.Height;
         ResizeMode = ResizeMode.NoResize;
-        WindowStartupLocation = WindowStartupLocation.CenterScreen;
-        ShowInTaskbar = true;
         Topmost = true;
-        Background = Theme.Surface;
-        Foreground = Theme.Text;
-        FontFamily = UiKit.Font;
-        UseLayoutRounding = true;
-        TrySetIcon();
 
         var root = new StackPanel { Margin = new Thickness(24, 20, 24, 18) };
 
@@ -122,7 +115,6 @@ internal sealed class KeyWindow : Window
         root.Children.Add(bar);
         Content = root;
 
-        SourceInitialized += (_, _) => DarkTitleBar();
         // On top once so it isn't lost behind the app you were typing in; after that it behaves like any window.
         ContentRendered += (_, _) =>
         {
@@ -262,55 +254,5 @@ internal sealed class KeyWindow : Window
 
     void SetSaveText(string text) => ((TextBlock)save.Child).Text = text;
 
-    void Status(string text, Brush brush)
-    {
-        status.Text = text;
-        status.Foreground = brush;
-        if (text.Length > 0)
-        {
-            (System.Windows.Automation.Peers.UIElementAutomationPeer.FromElement(status)
-             ?? System.Windows.Automation.Peers.UIElementAutomationPeer.CreatePeerForElement(status))
-                ?.RaiseAutomationEvent(System.Windows.Automation.Peers.AutomationEvents.LiveRegionChanged);
-        }
-    }
-
-    static Brush ErrorBrush => Theme.Dark ? Theme.B("#FF6B6F") : Theme.B("#C62D32");
-
-    static Brush WarnBrush => Theme.Dark ? Theme.B("#F5B451") : Theme.B("#9A5B00");
-
-    static void AutomationName(DependencyObject e, string name) => System.Windows.Automation.AutomationProperties.SetName(e, name);
-
-    void TrySetIcon()
-    {
-        try
-        {
-            string ico = Path.Combine(AppContext.BaseDirectory, "nimblewrite.ico");
-            if (File.Exists(ico)) Icon = BitmapFrame.Create(new Uri(ico));
-        }
-        catch (Exception e) when (e is IOException or NotSupportedException or UriFormatException or FileFormatException)
-        {
-        }
-    }
-
-    [DllImport("dwmapi.dll")]
-    static extern int DwmSetWindowAttribute(IntPtr hwnd, int attribute, ref int value, int size);
-
-    void DarkTitleBar()
-    {
-        if (!Theme.Dark) return;
-        int on = 1;
-        _ = DwmSetWindowAttribute(new WindowInteropHelper(this).Handle, 20, ref on, sizeof(int)); // DWMWA_USE_IMMERSIVE_DARK_MODE
-    }
-
-    static void Open(string url)
-    {
-        try
-        {
-            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
-        }
-        catch (Exception e)
-        {
-            Log.Error("open url", e);
-        }
-    }
+    void Status(string text, Brush brush) => Announce(status, text, brush);
 }

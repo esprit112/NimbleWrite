@@ -268,8 +268,15 @@ internal sealed class UiController : IPanelActions
 
     public void OpenEditor() => engine.OpenInEditor();
 
-    /// <summary>The web editor's settings page. (A native Settings window replaces this in a later phase.)</summary>
-    public void OpenWritingSettings() => OpenUrl(EditorUrl + "/#/settings");
+    /// <summary>Opens the Settings window (set by the app once it's built).</summary>
+    public Action? ShowSettings { get; set; }
+
+    /// <summary>The panel's gear: the Settings window on its Writing section, or the editor's settings if there's no window yet.</summary>
+    public void OpenWritingSettings()
+    {
+        if (ShowSettings != null) ShowSettings();
+        else OpenUrl(EditorUrl + "/#/settings");
+    }
 
     public void TabChanged(string id)
     {

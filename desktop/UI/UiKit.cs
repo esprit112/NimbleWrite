@@ -146,7 +146,21 @@ internal sealed class ClickBorder : Border
 {
     readonly Action onClick;
 
-    public ClickBorder(Action onClick) => this.onClick = onClick;
+    public ClickBorder(Action onClick)
+    {
+        this.onClick = onClick;
+        // In a window that takes the keyboard (Settings, About, Connect to NVIDIA), Tab reaches it and Enter or
+        // Space presses it. In the panel, badge and card it stays unfocusable, so they never steal the keyboard.
+        Loaded += (_, _) => Focusable = Window.GetWindow(this) is AppWindow;
+    }
+
+    protected override void OnKeyDown(KeyEventArgs e)
+    {
+        base.OnKeyDown(e);
+        if (!Focusable || e.Handled || e.Key is not (Key.Enter or Key.Space)) return;
+        e.Handled = true;
+        onClick();
+    }
 
     protected override AutomationPeer OnCreateAutomationPeer() => new Peer(this);
 
@@ -161,7 +175,7 @@ internal sealed class ClickBorder : Border
 
         protected override string GetClassNameCore() => "Button";
 
-        protected override bool IsKeyboardFocusableCore() => false;
+        protected override bool IsKeyboardFocusableCore() => Owner.Focusable;
 
         protected override string GetNameCore()
         {

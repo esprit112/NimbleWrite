@@ -30,6 +30,11 @@ public sealed class DesktopConfig
     public string LastTab { get; set; } = "review";
     /// <summary>Languages last translated into, most recent first (at most three); the Translate tab offers them first.</summary>
     public List<string> RecentLanguages { get; set; } = new() { "French", "Spanish", "German" };
+    /// <summary>The companion's colours: "system" follows Windows, or "light" / "dark". Applied at start.</summary>
+    public string Theme { get; set; } = "system";
+
+    /// <summary>Settings this version doesn't know (written by a newer one), kept so saving doesn't drop them.</summary>
+    [JsonExtensionData] public Dictionary<string, JsonElement>? Unknown { get; set; }
 
     [JsonIgnore] public DateTime PausedUntil { get; set; } = DateTime.MinValue;
 
@@ -43,7 +48,7 @@ public sealed class DesktopConfig
     {
         try
         {
-            if (File.Exists(FilePath)) return JsonSerializer.Deserialize<DesktopConfig>(File.ReadAllText(FilePath), Json) ?? new DesktopConfig();
+            if (File.Exists(FilePath)) return FromJson(File.ReadAllText(FilePath));
         }
         catch (Exception e)
         {
@@ -58,13 +63,24 @@ public sealed class DesktopConfig
         {
             Directory.CreateDirectory(Path.GetDirectoryName(FilePath)!);
             var tmp = FilePath + ".tmp";
-            File.WriteAllText(tmp, JsonSerializer.Serialize(this, Json));
+            File.WriteAllText(tmp, ToJson());
             File.Move(tmp, FilePath, true);
         }
         catch (Exception e)
         {
             Log.Error("config save", e);
         }
+    }
+
+    internal static DesktopConfig FromJson(string json) => JsonSerializer.Deserialize<DesktopConfig>(json, Json) ?? new DesktopConfig();
+
+    internal string ToJson() => JsonSerializer.Serialize(this, Json);
+
+    /// <summary>Back to the apps NimbleWrite stays off in when it's first installed.</summary>
+    public void ResetDisabledApps()
+    {
+        DisabledApps = new(DefaultDisabledApps);
+        Save();
     }
 
     public bool IsAppDisabled(string process) => DisabledApps.Any(a => string.Equals(a, process, StringComparison.OrdinalIgnoreCase));

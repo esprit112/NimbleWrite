@@ -23,6 +23,12 @@ internal static class Icons
     public const string Plagiarism = "\uEA18"; // Shield
     public const string ImagePrompt = "\uE91B"; // Photo
     public const string Documents = "\uE8A5"; // Document
+    public const string Keyboard = "\uE765"; // KeyboardClassic
+    public const string Apps = "\uE71D"; // AllApps
+    public const string Writing = "\uE8D2"; // Font
+    public const string Connection = "\uE774"; // Globe
+    public const string Appearance = "\uE790"; // Color
+    public const string Info = "\uE946"; // Info
     public const string Performance = "\uE9D9"; // Diagnostic
     public const string Settings = "\uE713"; // Setting
     public const string Close = "\uE711"; // Cancel
