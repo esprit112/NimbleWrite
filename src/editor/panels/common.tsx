@@ -204,7 +204,7 @@ export function ResultCard({ editor, writer, mode }: { editor: Editor; writer: R
           <Button size="sm" variant="secondary" onClick={writer.stop}><Square className="size-3.5" /> Stop</Button>
         ) : (
           <>
-            {!error && mode === 'replace' && target && target.text && <Button size="sm" variant="primary" onClick={replace}><Check className="size-4" /> Replace</Button>}
+            {!error && mode === 'replace' && target?.text && <Button size="sm" variant="primary" onClick={replace}><Check className="size-4" /> Replace</Button>}
             {!error && <Button size="sm" variant={mode === 'insert' ? 'primary' : 'secondary'} onClick={insert}><ArrowRight className="size-4" /> Insert</Button>}
             {!error && <Button size="sm" variant="ghost" onClick={copy}>{copied ? <ClipboardCheck className="size-4" /> : <Copy className="size-4" />} Copy</Button>}
             {request && <Button size="sm" variant="ghost" onClick={() => writer.run(request, target)}><RotateCcw className="size-4" /> Retry</Button>}

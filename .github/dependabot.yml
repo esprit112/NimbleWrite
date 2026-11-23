@@ -1,0 +1,17 @@
+# Weekly pull requests for updated dependencies, so security fixes and breaking changes arrive in small steps.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule: { interval: weekly }
+    open-pull-requests-limit: 5
+    groups:
+      tiptap: { patterns: ["@tiptap/*"] }
+      react: { patterns: ["react", "react-dom", "@types/react*"] }
+  - package-ecosystem: nuget
+    directory: /desktop
+    schedule: { interval: weekly }
+    open-pull-requests-limit: 5
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: weekly }

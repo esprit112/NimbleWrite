@@ -1,6 +1,7 @@
 // Citation metadata (from a URL or DOI) and formatting in APA 7, MLA 9, Chicago 17 and Harvard (Cite Them Right).
 import * as cheerio from 'cheerio';
 import type { CitationAuthor, CitationMeta, CitationStyle, FormattedCitation } from '../shared/types';
+import { safeGet } from './safeFetch';
 import { fetchPage } from './web';
 
 const ORG_HINT = /\b(inc|ltd|llc|plc|university|association|organisation|organization|institute|society|council|agency|department|ministry|news|team|staff|editors?|press|bbc|nhs|who|un|government|office|foundation|trust|group|committee)\b/i;
@@ -183,13 +184,10 @@ interface Csl {
 const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? '';
 
 export async function metaFromDoi(doi: string): Promise<CitationMeta> {
-  const res = await fetch(doiUrl(doi), {
-    signal: AbortSignal.timeout(12_000),
-    headers: { Accept: 'application/vnd.citationstyles.csl+json' },
-    redirect: 'follow',
-  });
+  // doi.org redirects to the publisher; safeGet checks every hop so a crafted DOI can't lead to a private address.
+  const res = await safeGet(doiUrl(doi), { timeoutMs: 12_000, maxBytes: 1024 * 1024, headers: { Accept: 'application/vnd.citationstyles.csl+json' } });
   if (!res.ok) throw new Error(`DOI lookup failed (${res.status})`);
-  const c = (await res.json()) as Csl;
+  const c = JSON.parse(res.body.toString('utf8')) as Csl;
   const parts = c.issued?.['date-parts']?.[0] ?? c.published?.['date-parts']?.[0];
   const type = c.type === 'book' || c.type === 'monograph' ? 'book' : c.type === 'report' ? 'report' : 'article';
   return {

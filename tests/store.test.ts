@@ -1,7 +1,7 @@
 // Documents that arrive as plain text, like the desktop companion's "Open in NimbleWrite", must open with their text:
 // the editor shows a document's HTML, so the store makes HTML from the text whenever none comes with it.
 // Every test runs against an empty temporary data folder (never the real one) and never reads .env.
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -96,5 +96,41 @@ describe('documents created or updated from plain text', () => {
     expect(store.getDoc(blank.id)?.html).toBe('<p>Saved blank.</p><p>Still here.</p>');
     expect(store.getDoc(fine.id)?.html).toBe(fine.html);
     expect(store.listDocs(false)).toHaveLength(2); // no welcome document added, nothing lost
+  });
+});
+
+describe('saving documents', () => {
+  it('keeps the newest save on disk when many saves are fired at once', async () => {
+    const store = await freshStore();
+    await store.loadStore();
+    const doc = await store.createDoc({ html: '<p>v0</p>', text: 'v0' });
+    const saves = Array.from({ length: 25 }, (_, i) => store.updateDoc(doc.id, { html: `<p>v${i + 1}</p>`, text: `v${i + 1}` }));
+    await Promise.all(saves);
+    const onDisk = JSON.parse(await readFile(path.join(dataDir, 'docs', `${doc.id}.json`), 'utf8'));
+    expect(onDisk.text).toBe('v25');
+    expect(store.getDoc(doc.id)?.text).toBe('v25');
+  });
+
+  it('does not bring a deleted document back from a save still waiting', async () => {
+    const store = await freshStore();
+    await store.loadStore();
+    const doc = await store.createDoc({ text: 'Gone soon.' });
+    const pending = store.updateDoc(doc.id, { text: 'Last words.' });
+    await store.deleteDocForever(doc.id);
+    await pending;
+    await expect(readFile(path.join(dataDir, 'docs', `${doc.id}.json`), 'utf8')).rejects.toThrow();
+  });
+
+  it('refuses a save made from an out-of-date version, and accepts one made from the current version', async () => {
+    const store = await freshStore();
+    await store.loadStore();
+    const doc = await store.createDoc({ text: 'First.' });
+    const opened = doc.updatedAt;
+    await new Promise((r) => setTimeout(r, 5));
+    const other = await store.updateDoc(doc.id, { text: 'Changed in the desktop app.' }); // someone else saves
+    await expect(store.updateDoc(doc.id, { text: 'My stale edit.' }, opened)).rejects.toBeInstanceOf(store.DocConflictError);
+    expect(store.getDoc(doc.id)?.text).toBe('Changed in the desktop app.');
+    expect((await store.updateDoc(doc.id, { text: 'Merged.' }, other!.updatedAt))?.text).toBe('Merged.');
+    expect((await store.updateDoc(doc.id, { text: 'No check asked for.' }))?.text).toBe('No check asked for.'); // old clients keep working
   });
 });

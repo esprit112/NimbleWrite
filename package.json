@@ -13,7 +13,9 @@
     "package:win": "node scripts/package-win.mjs",
     "start": "tsx server/index.ts",
     "typecheck": "tsc --noEmit -p .",
-    "test": "vitest run"
+    "test": "vitest run",
+    "lint": "biome lint",
+    "audit:prod": "npm audit --omit=dev --audit-level=high"
   },
   "dependencies": {
     "@tiptap/core": "^3.32.0",
@@ -36,6 +38,7 @@
     "zustand": "^5.0.16"
   },
   "devDependencies": {
+    "@biomejs/biome": "2.6.8",
     "@tailwindcss/vite": "^4.3.3",
     "@types/express": "^5.0.6",
     "@types/node": "^24.0.0",
