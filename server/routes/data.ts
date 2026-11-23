@@ -13,7 +13,7 @@ import type { CitationMeta, CitationStyle, HealthResponse, InsightsResponse, Key
 import { config } from '../config';
 import { chat, listChatModels, testApiKey } from '../nim';
 import {
-  allLiveDocs, createDoc, deleteDocForever, getDoc, getSettings, listDocs, recentStats, recordAccepted, restoreDoc, saveSettings, trashDoc, updateDoc,
+  allLiveDocs, createDoc, DocConflictError, deleteDocForever, getDoc, getSettings, listDocs, recentStats, recordAccepted, restoreDoc, saveSettings, trashDoc, updateDoc,
 } from '../store';
 import { checkPlagiarism } from '../plagiarism';
 import { formatCitation, lookupCitation } from '../citation';
@@ -85,10 +85,22 @@ const DocPatch = z.object({
   goals: goals.optional(),
   dismissed: z.array(z.string().max(400)).max(5000).optional(),
   score: z.number().min(0).max(100).nullable().optional(),
+  /** Optional: the `updatedAt` of the version being edited. A newer version on the server answers 409 instead of being overwritten. */
+  ifUnmodifiedSince: z.number().int().optional(),
 });
 
 dataRouter.put('/docs/:id', async (req, res) => {
-  const doc = await updateDoc(idParam(req.params.id), DocPatch.parse(req.body));
+  const { ifUnmodifiedSince, ...patch } = DocPatch.parse(req.body);
+  let doc: Awaited<ReturnType<typeof updateDoc>>;
+  try {
+    doc = await updateDoc(idParam(req.params.id), patch, ifUnmodifiedSince);
+  } catch (err) {
+    if (err instanceof DocConflictError) {
+      res.status(409).json({ error: err.message, doc: err.current });
+      return;
+    }
+    throw err;
+  }
   if (!doc) {
     res.status(404).json({ error: 'Document not found' });
     return;

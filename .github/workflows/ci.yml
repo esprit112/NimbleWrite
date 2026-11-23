@@ -1,5 +1,6 @@
 # Runs every test on each push and pull request to main:
-#  - web: the React editor and the Express server (vitest), the type check, and the production build of the editor,
+#  - web: the React editor and the Express server (vitest), the type check, lint, an audit of the production
+#    dependencies, and the production build of the editor,
 #    which also runs scripts/check-bundle.mjs (the bundle's secret check).
 #  - desktop: the Windows companion's xunit tests (.NET 10, WPF).
 # Both jobs run on Windows: the companion only builds there, and the packaging tests use Windows paths.
@@ -37,6 +38,10 @@ jobs:
         run: npm test
       - name: Type check
         run: npm run typecheck
+      - name: Lint (Biome)
+        run: npm run lint
+      - name: Audit production dependencies
+        run: npm run audit:prod
       - name: Build the web editor
         run: npm run build
 

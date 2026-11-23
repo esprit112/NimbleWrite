@@ -30,11 +30,36 @@ export const DEFAULT_SETTINGS: Settings = {
   mutedTypes: [],
 };
 
-async function writeAtomic(file: string, data: unknown): Promise<void> {
-  await fs.mkdir(path.dirname(file), { recursive: true });
-  const tmp = `${file}.${process.pid}.${Date.now()}.tmp`;
-  await fs.writeFile(tmp, JSON.stringify(data, null, 2), 'utf8');
-  await fs.rename(tmp, file);
+// Every write to a file (and every delete) waits for the one before it. Without this, two saves of the same
+// document in quick succession could finish out of order, and the older one would end up on disk over the newer.
+const fileQueues = new Map<string, Promise<unknown>>();
+
+function serial<T>(file: string, job: () => Promise<T>): Promise<T> {
+  const run = (fileQueues.get(file) ?? Promise.resolve()).then(job, job);
+  const tail = run.catch(() => undefined); // a failed write must not block the ones after it
+  fileQueues.set(file, tail);
+  void tail.then(() => {
+    if (fileQueues.get(file) === tail) fileQueues.delete(file);
+  });
+  return run;
+}
+
+function writeAtomic(file: string, data: unknown): Promise<void> {
+  const json = JSON.stringify(data, null, 2); // a snapshot of the data as it is now, not when the write gets its turn
+  return serial(file, async () => {
+    await fs.mkdir(path.dirname(file), { recursive: true });
+    const tmp = `${file}.${process.pid}.${Date.now()}.tmp`;
+    await fs.writeFile(tmp, json, 'utf8');
+    await fs.rename(tmp, file);
+  });
+}
+
+/** Another save got there first: the document changed after the version the caller was editing. */
+export class DocConflictError extends Error {
+  constructor(public readonly current: Doc) {
+    super('This document was changed somewhere else (the editor or the desktop app) since you opened it.');
+    this.name = 'DocConflictError';
+  }
 }
 
 async function readJson<T>(file: string): Promise<T | null> {
@@ -125,9 +150,15 @@ export async function createDoc(input: { title?: string; html?: string; text?: s
   return doc;
 }
 
-export async function updateDoc(id: string, patch: Partial<Pick<Doc, 'title' | 'html' | 'text' | 'goals' | 'dismissed' | 'score'>>): Promise<Doc | null> {
+export async function updateDoc(
+  id: string,
+  patch: Partial<Pick<Doc, 'title' | 'html' | 'text' | 'goals' | 'dismissed' | 'score'>>,
+  /** The `updatedAt` of the version being edited. If the document has changed since, throws DocConflictError instead of overwriting. */
+  ifUnmodifiedSince?: number,
+): Promise<Doc | null> {
   const cur = docs.get(id);
   if (!cur || !safeId(id)) return null;
+  if (ifUnmodifiedSince !== undefined && cur.updatedAt !== ifUnmodifiedSince) throw new DocConflictError(cur);
   // Score / dismissal bookkeeping is not an edit, so it must not reorder the documents list.
   const edited = patch.title !== undefined || patch.html !== undefined || patch.text !== undefined || patch.goals !== undefined;
   const next: Doc = { ...cur, ...patch, updatedAt: edited ? Date.now() : cur.updatedAt };
@@ -162,7 +193,8 @@ export async function restoreDoc(id: string): Promise<boolean> {
 export async function deleteDocForever(id: string): Promise<boolean> {
   if (!docs.has(id) || !safeId(id)) return false;
   docs.delete(id);
-  await fs.rm(path.join(DOCS_DIR, `${id}.json`), { force: true });
+  const file = path.join(DOCS_DIR, `${id}.json`);
+  await serial(file, () => fs.rm(file, { force: true })); // after any save still waiting, so it can't bring the file back
   return true;
 }
 
