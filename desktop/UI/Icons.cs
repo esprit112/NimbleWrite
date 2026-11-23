@@ -21,7 +21,6 @@ internal static class Icons
     public const string Synonyms = "\uE82D"; // Dictionary
     public const string Citations = "\uE8F1"; // Library
     public const string Plagiarism = "\uEA18"; // Shield
-    public const string ImagePrompt = "\uE91B"; // Photo
     public const string Documents = "\uE8A5"; // Document
     public const string Keyboard = "\uE765"; // KeyboardClassic
     public const string Apps = "\uE71D"; // AllApps

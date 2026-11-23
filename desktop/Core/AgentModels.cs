@@ -209,13 +209,6 @@ public sealed class CitationLookupResult
     public List<FormattedCitation> Formatted { get; set; } = new();
 }
 
-public sealed class ImagePromptResult
-{
-    public string Prompt { get; set; } = "";
-    public string Model { get; set; } = "";
-    public int Ms { get; set; }
-}
-
 /// <summary>
 /// One settings change proposed by the Tune chat (shared/types.ts TuneChange, a union on <see cref="Kind"/>). Fields
 /// that don't apply to a kind stay null and aren't sent, so a change goes back to the server exactly as it came.
