@@ -18,11 +18,11 @@
     "audit:prod": "npm audit --omit=dev --audit-level=high"
   },
   "dependencies": {
-    "@tiptap/core": "^3.32.0",
+    "@tiptap/core": "^3.35.0",
     "@tiptap/extensions": "^3.32.0",
-    "@tiptap/pm": "^3.32.0",
-    "@tiptap/react": "^3.32.0",
-    "@tiptap/starter-kit": "^3.32.0",
+    "@tiptap/pm": "^3.35.0",
+    "@tiptap/react": "^3.35.0",
+    "@tiptap/starter-kit": "^3.35.0",
     "cheerio": "^1.2.0",
     "docx": "^9.14.0",
     "dompurify": "^3.4.17",
