@@ -108,21 +108,13 @@ public class ApiClientToolTests
     }
 
     [Fact]
-    public async Task SynonymsToneAndImagePromptSendTheirFields()
+    public async Task SynonymsSendTheirFields()
     {
         var (api, s) = Make("{\"senses\":[{\"meaning\":\"fast\",\"synonyms\":[\"quick\",\"rapid\"]}]}");
         var senses = await api.SynonymsAsync("speedy", "A speedy reply.", "en-GB", None);
         Assert.Equal(new[] { "quick", "rapid" }, senses.Single().Synonyms);
         Assert.Equal("/api/ai/synonyms", s.Requests[0].Path);
         Assert.Equal(new[] { "dialect", "sentence", "word" }, Keys(Body(s)));
-
-        s.Reply = "{\"prompt\":\"A red fox\",\"model\":\"m\",\"ms\":12}";
-        var p = await api.ImagePromptAsync("fox", "flux3-klein", enhance: false, None);
-        Assert.Equal("A red fox", p.Prompt);
-        var b = Body(s, 1);
-        Assert.Equal("/api/ai/image-prompt", s.Requests[1].Path);
-        Assert.False(b.GetProperty("enhance").GetBoolean());
-        Assert.Equal("flux3-klein", b.GetProperty("target").GetString());
     }
 
     [Fact]

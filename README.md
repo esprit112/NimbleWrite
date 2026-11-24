@@ -96,7 +96,7 @@ Browser (React 19 + TipTap 3)                         Server (Express 5, port 43
 cd desktop
 dotnet build -c Release                     # or: dotnet publish -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true -o publish
 bin/Release/net10.0-windows/NimbleWrite.exe # starts the server too if it isn't running
-dotnet test tests                           # 239 unit tests: text model, SSE parser, hotkeys, focus, privacy guards, key store, launcher, every panel tab, Settings and About
+dotnet test tests                           # 238 unit tests: text model, SSE parser, hotkeys, focus, privacy guards, key store, launcher, every panel tab, Settings and About
 ```
 
 It needs the .NET 10 Desktop Runtime (the [installer](#windows-installer) includes everything instead). If the exe lives inside this folder and the server isn't running, it starts the server itself (`node` + `tsx`, so `npm install` must have been run), and stops that server again when you quit. If the server drops out, the badge and panel say so, and the message clears by itself once the server is back.
@@ -105,7 +105,7 @@ It needs the .NET 10 Desktop Runtime (the [installer](#windows-installer) includ
 - **The assistant:** click the badge or press **Ctrl+Alt+N**. Every tool from the editor is a tab down its left side, in the same order, and works on what you've selected (or all the text):
   - **Review suggestions**: the cards, Fix all spelling and grammar, and *Tune suggestions…* to tell NimbleWrite in plain words what to flag.
   - **AI Assistant**, **Paraphraser** (eight modes and a custom voice), **Humanizer** and **Translate** (30 languages, source detected): the result shows first, then **Replace** or **Copy** (summaries, replies, outlines, ideas and *Continue writing* are inserted after your text instead of replacing it).
-  - **Reader Reactions**, **AI Grader**, **Citations** (cite a URL or DOI in four styles, or find claims that need a source), **AI Detector** (with *Humanize* on a single passage), **Plagiarism Checker**, **Image Prompt Formatter** and **Synonyms** (click one to swap the word).
+  - **Reader Reactions**, **AI Grader**, **Citations** (cite a URL or DOI in four styles, or find claims that need a source), **AI Detector** (with *Humanize* on a single passage), **Plagiarism Checker** and **Synonyms** (click one to swap the word).
   - **Performance**: score, readability, statistics, tone and your week. **Documents**: your NimbleWrite documents, to insert, copy or open, or save the text box as a new one.
 
   Slow tools show a working state with **Cancel**. Clicking a box in the panel lets you type there; Enter, Escape or a click outside gives the keyboard back to your app with its selection intact. The panel reopens on the tab you used last.
@@ -173,7 +173,7 @@ The installed app runs its own server on port 4317. It keeps documents and setti
 - **Upgrading:** run a newer setup program. It closes the running copy first, and keeps the install mode and folder of the copy already there (no questions asked).
 - **Moving between "just me" and "all users":** uninstall first (choose No to keep documents, settings and the key), then run Setup again and pick the other option.
 - **Uninstalling:** use Windows Settings → Apps. It asks whether to delete documents, settings and the saved key; the default keeps them.
-- **Unattended installs:** `NimbleWrite-Setup-1.1.0.exe /VERYSILENT /TASKS="startup"` installs silently (add `/ALLUSERS` for Program Files, from an elevated prompt, or `/CURRENTUSER`), and `unins000.exe /VERYSILENT` removes it, keeping user data.
+- **Unattended installs:** `NimbleWrite-Setup-1.2.0.exe /VERYSILENT /TASKS="startup"` installs silently (add `/ALLUSERS` for Program Files, from an elevated prompt, or `/CURRENTUSER`), and `unins000.exe /VERYSILENT` removes it, keeping user data.
 
 **Not code-signed yet.** On other PCs, Windows SmartScreen will say "Windows protected your PC" for a downloaded installer: choose **More info → Run anyway**. Signing it needs a code-signing certificate and an Inno Setup `SignTool` line in the `.iss`.
 

@@ -213,10 +213,6 @@ public sealed class ApiClient : IDisposable
     public async Task<List<SynonymSense>> SynonymsAsync(string word, string sentence, string dialect, CancellationToken ct) =>
         (await SendAsync<SynonymsResponse>(HttpMethod.Post, "api/ai/synonyms", new { word = Clip(word, 60), sentence = Clip(sentence, 1200), dialect }, ct).ConfigureAwait(false)).Senses;
 
-    /// <summary><paramref name="enhance"/>=false restructures only what was written; true lets the model add detail.</summary>
-    public Task<ImagePromptResult> ImagePromptAsync(string idea, string target, bool enhance, CancellationToken ct) =>
-        SendAsync<ImagePromptResult>(HttpMethod.Post, "api/ai/image-prompt", new { idea = Clip(idea, 4000), target, enhance }, ct);
-
     public Task<PlagiarismResult> PlagiarismAsync(PlagiarismRequest request, CancellationToken ct)
     {
         var body = new PlagiarismRequest

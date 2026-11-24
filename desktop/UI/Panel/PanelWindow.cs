@@ -134,7 +134,6 @@ internal sealed class PanelWindow : NoActivateWindow
         new DetectorTab(host),
         new PlagiarismTab(host),
         new RewriteTab(host, RewriteKind.Translate),
-        new ImagePromptTab(host),
         new SynonymsTab(host),
         new PerformanceTab(host),
         new DocumentsTab(host),

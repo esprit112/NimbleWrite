@@ -110,7 +110,7 @@ public sealed class PanelTests
     public void TabsFollowTheWebEditorsOrderAndAreUnique() => OnSta(() =>
     {
         var ids = PanelWindow.CreateTabs(new FakeHost()).Select(t => t.Id).ToList();
-        Assert.Equal(new[] { "review", "assistant", "paraphrase", "humanize", "reader", "grader", "citations", "detector", "plagiarism", "translate", "image-prompt", "synonyms", "performance", "documents" }, ids);
+        Assert.Equal(new[] { "review", "assistant", "paraphrase", "humanize", "reader", "grader", "citations", "detector", "plagiarism", "translate", "synonyms", "performance", "documents" }, ids);
         Assert.Equal(ids.Count, ids.Distinct().Count());
     });
 
@@ -320,9 +320,6 @@ public sealed class PanelTests
                         new() { Title = "Pasted source", Kind = "pasted", Similarity = 6, Url = "https://example.org/a/very/long/path/to/an/article-about-screen-time-and-schools", Passages = { new() { Text = "manage screen time" } } },
                     },
                 }, scope);
-                return true;
-            case ImagePromptTab img:
-                img.Show(new ImagePromptResult { Prompt = "Photograph, golden hour. A red fox stands in fresh snow at the left third of the frame, breath visible, backlit by low sun; pine forest softly out of focus behind.", Model = "m", Ms = 3200 }, new TextScope(0, 20, "a fox in snow at dawn", "a fox in snow at dawn", true));
                 return true;
             case PerformanceTab perf:
                 perf.ShowStats(new TextStatsResponse

@@ -306,16 +306,6 @@ export interface DayStats {
   wordsChecked: number;
 }
 
-/** Which image model's prompting conventions to format for. */
-export const IMAGE_PROMPT_TARGETS = ['flux2-klein', 'flux3-klein', 'zimage-turbo', 'flux2', 'flux3'] as const;
-export type ImagePromptTarget = (typeof IMAGE_PROMPT_TARGETS)[number];
-
-export interface ImagePromptResult {
-  prompt: string;
-  model: string;
-  ms: number;
-}
-
 export interface InsightsResponse {
   days: { date: string; stats: DayStats }[];
   totals: { docs: number; words: number; accepted: number };

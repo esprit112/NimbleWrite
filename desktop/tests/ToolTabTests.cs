@@ -9,7 +9,7 @@ using Xunit;
 
 namespace NimbleWrite.Desktop.Tests;
 
-/// <summary>Citations, Plagiarism, Image prompt, Performance, Tune and Documents: pure helpers and the lists copied from the web.</summary>
+/// <summary>Citations, Plagiarism, Performance, Tune and Documents: pure helpers and the lists copied from the web.</summary>
 public sealed class ToolTabTests
 {
     [Fact]
@@ -36,13 +36,6 @@ public sealed class ToolTabTests
         var plain = PlagiarismTab.BuildRequest("Text", includeDocs: true, web: true, searchConfigured: true, " ", "");
         Assert.True(plain.Web);
         Assert.Empty(plain.Sources);
-    }
-
-    [Fact]
-    public void ImagePromptDefaultsToRestructuringForFlux3Klein()
-    {
-        Assert.Equal("flux3-klein", ImagePromptTab.Targets[0].Id);
-        Assert.False(ImagePromptTab.EnhanceByDefault);
     }
 
     [Theory]
@@ -111,11 +104,6 @@ public sealed class ToolTabTests
         string[] Strings(string name) => Regex.Matches(Regex.Match(src, $@"const {name} = \[(.*?)\];", RegexOptions.Singleline).Groups[1].Value, "'([^']+)'").Select(m => m.Groups[1].Value).ToArray();
         Assert.Equal(Strings("READERS"), ReaderTab.Readers);
         Assert.Equal(Strings("LEVELS"), GraderTab.Levels);
-
-        string targets = Regex.Match(src, @"const IMAGE_TARGETS[^=]*= \[(.*?)\];", RegexOptions.Singleline).Groups[1].Value;
-        var web = Regex.Matches(targets, @"\{ id: '([^']+)', label: '([^']+)', hint: ([""'])(.*?)\3 \}").Select(m => (m.Groups[1].Value, m.Groups[2].Value, m.Groups[4].Value)).ToArray();
-        Assert.Equal(5, web.Length);
-        Assert.Equal(web, ImagePromptTab.Targets);
 
         var quick = Regex.Matches(src, @"\{ task: '([^']+)', label: '([^']+)', kind:").Select(m => (m.Groups[1].Value, m.Groups[2].Value)).ToArray();
         Assert.Equal(quick, AssistantTab.QuickActions);
